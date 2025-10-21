@@ -1,4 +1,4 @@
-"""Gold layer: Create aggregated analytics tables from Silver layer."""
+"""Gold layer: Aggregate Silver data into analytics-ready tables."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from prefect import task
 from sqlalchemy import text
@@ -13,6 +14,15 @@ from sqlalchemy import text
 from app.adapters.postgresql import PostgreSQLAdapter
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_row_for_insert(row: pd.Series) -> dict:
+    """Convert pandas Series to dict, replacing NaN/inf with None."""
+    row_dict = row.to_dict()
+    for key, value in row_dict.items():
+        if pd.isna(value) or (isinstance(value, (float, np.floating)) and not np.isfinite(value)):
+            row_dict[key] = None
+    return row_dict
 
 
 @task(name="aggregate-to-gold", retries=2, retry_delay_seconds=30)
@@ -105,7 +115,7 @@ def _aggregate_daily_summary(
                     avg_customer_rating = EXCLUDED.avg_customer_rating,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Aggregated {rows_affected} daily summaries to Gold")
@@ -168,7 +178,7 @@ def _aggregate_customer_analytics(db_adapter: PostgreSQLAdapter) -> int:
                     last_booking_date = EXCLUDED.last_booking_date,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Aggregated {rows_affected} customer analytics to Gold")
@@ -219,7 +229,7 @@ def _aggregate_location_analytics(db_adapter: PostgreSQLAdapter) -> int:
                     avg_booking_value = EXCLUDED.avg_booking_value,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Aggregated {rows_affected} location analytics to Gold")

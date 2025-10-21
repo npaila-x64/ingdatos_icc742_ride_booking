@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from prefect import task
 from sqlalchemy import text
@@ -13,6 +14,15 @@ from sqlalchemy import text
 from app.adapters.postgresql import PostgreSQLAdapter
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_row_for_insert(row: pd.Series) -> dict:
+    """Convert pandas Series to dict, replacing NaN/inf with None."""
+    row_dict = row.to_dict()
+    for key, value in row_dict.items():
+        if pd.isna(value) or (isinstance(value, (float, np.floating)) and not np.isfinite(value)):
+            row_dict[key] = None
+    return row_dict
 
 
 @task(name="transform-to-silver", retries=2, retry_delay_seconds=30)
@@ -94,7 +104,7 @@ def _transform_customer_dimension(
                     total_bookings = silver.customer.total_bookings + EXCLUDED.total_bookings,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} customers to Silver")
@@ -134,7 +144,7 @@ def _transform_vehicle_type_dimension(
                 VALUES (:name, :created_at, :updated_at)
                 ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(insert_query, row.to_dict())
+            conn.execute(insert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} vehicle types to Silver")
@@ -173,7 +183,7 @@ def _transform_location_dimension(
                 VALUES (:name, :created_at, :updated_at)
                 ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(insert_query, row.to_dict())
+            conn.execute(insert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} locations to Silver")
@@ -212,7 +222,7 @@ def _transform_booking_status_dimension(
                 VALUES (:name, :created_at, :updated_at)
                 ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(insert_query, row.to_dict())
+            conn.execute(insert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} booking statuses to Silver")
@@ -251,7 +261,7 @@ def _transform_payment_method_dimension(
                 VALUES (:name, :created_at, :updated_at)
                 ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(insert_query, row.to_dict())
+            conn.execute(insert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} payment methods to Silver")
@@ -323,7 +333,7 @@ def _transform_booking_fact(
                     payment_method_id = EXCLUDED.payment_method_id,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} bookings to Silver")
@@ -381,7 +391,7 @@ def _transform_ride_fact(
                     customer_rating = EXCLUDED.customer_rating,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} rides to Silver")
@@ -440,7 +450,7 @@ def _transform_cancelled_ride_fact(
                         :booking_id, :ride_cancelled_by, :cancellation_reason, :created_at, :updated_at
                     )
                 """)
-                conn.execute(insert_query, row.to_dict())
+                conn.execute(insert_query, _clean_row_for_insert(row))
                 rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} cancelled rides to Silver")
@@ -488,7 +498,7 @@ def _transform_incompleted_ride_fact(
                     incompletion_reason = EXCLUDED.incompletion_reason,
                     updated_at = EXCLUDED.updated_at
             """)
-            conn.execute(upsert_query, row.to_dict())
+            conn.execute(upsert_query, _clean_row_for_insert(row))
             rows_affected += 1
     
     logger.info(f"Transformed {rows_affected} incompleted rides to Silver")
