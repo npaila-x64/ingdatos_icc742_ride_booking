@@ -1,0 +1,9 @@
+name: ride-booking-etl
+prefect-version: "2.14.20"
+profile: ride-booking-local
+
+build: {}
+
+deployments: {}
+
+deploy: {}
