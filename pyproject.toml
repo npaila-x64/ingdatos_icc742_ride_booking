@@ -21,6 +21,7 @@ dependencies = [
 [project.scripts]
 ride-booking-bootstrap = "app.etl.bootstrap:run_bootstrap"
 ride-booking-etl = "app.etl.cli:main"
+ride-booking-wipe-db = "app.tools.wipe_database:main"
 
 [project.optional-dependencies]
 dev = [

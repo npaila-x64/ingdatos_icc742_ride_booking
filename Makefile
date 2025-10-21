@@ -15,6 +15,8 @@ help:
 	@echo "  make logs        - View logs from all services"
 	@echo "  make logs-etl    - View ETL application logs"
 	@echo "  make logs-db     - View PostgreSQL logs"
+	@echo "  make db-wipe     - Delete ALL data in bronze/silver/gold (force)"
+	@echo "  make db-wipe-dry - Show tables that would be truncated"
 	@echo "  make clean       - Remove containers, volumes, and images"
 	@echo "  make db-shell    - Connect to PostgreSQL shell"
 	@echo "  make etl-shell   - Open shell in ETL container"
@@ -150,3 +152,10 @@ db-query-silver:
 db-query-gold:
 	docker-compose exec postgres psql -U postgres -d ride_booking -c "\
 		SELECT * FROM gold.daily_booking_summary ORDER BY summary_date DESC LIMIT 10;"
+
+# Wipe database data (medallion schemas)
+db-wipe:
+	$(DOCKER_COMPOSE) exec etl_app python -m app.tools.wipe_database --force
+
+db-wipe-dry:
+	$(DOCKER_COMPOSE) exec etl_app python -m app.tools.wipe_database
