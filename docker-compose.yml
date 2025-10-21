@@ -79,7 +79,7 @@ services:
         condition: service_healthy
     networks:
       - ride_booking_network
-    command: ["python", "-c", "import time; print('ETL app ready'); time.sleep(float('inf'))"]
+    command: ["python", "-c", "import time; print('ETL app ready'); [time.sleep(3600) for _ in iter(int, 1)]"]
 
   # Prefect Server (optional - for local orchestration)
   prefect_server:
