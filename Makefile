@@ -1,5 +1,8 @@
 .PHONY: help build up down restart logs clean test db-init
 
+# Docker Compose command (v2)
+DOCKER_COMPOSE := docker compose
+
 # Default target
 help:
 	@echo "Available commands:"
@@ -20,69 +23,69 @@ help:
 
 # Build Docker images
 build:
-	docker-compose build
+	$(DOCKER_COMPOSE) build
 
 # Start services (minimal: just DB and ETL)
 up:
-	docker-compose up -d postgres etl_app
+	$(DOCKER_COMPOSE) up -d postgres etl_app
 
 # Start with development tools (includes pgAdmin)
 up-dev:
-	docker-compose --profile dev up -d
+	$(DOCKER_COMPOSE) --profile dev up -d
 
 # Start with Prefect server
 up-prefect:
-	docker-compose --profile prefect up -d
+	$(DOCKER_COMPOSE) --profile prefect up -d
 
 # Stop all services
 down:
-	docker-compose down
+	$(DOCKER_COMPOSE) down
 
 # Restart services
 restart:
-	docker-compose restart
+	$(DOCKER_COMPOSE) restart
 
 # View logs
 logs:
-	docker-compose logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 logs-etl:
-	docker-compose logs -f etl_app
+	$(DOCKER_COMPOSE) logs -f etl_app
 
 logs-db:
-	docker-compose logs -f postgres
+	$(DOCKER_COMPOSE) logs -f postgres
 
 logs-prefect:
-	docker-compose logs -f prefect_server
+	$(DOCKER_COMPOSE) logs -f prefect_server
 
 # Clean up everything
 clean:
-	docker-compose down -v --rmi local
+	$(DOCKER_COMPOSE) down -v --rmi local
 	rm -rf data/logs/*
 
 # Database shell
 db-shell:
-	docker-compose exec postgres psql -U postgres -d ride_booking
+	$(DOCKER_COMPOSE) exec postgres psql -U postgres -d ride_booking
 
 # ETL application shell
 etl-shell:
-	docker-compose exec etl_app /bin/bash
+	$(DOCKER_COMPOSE) exec etl_app /bin/bash
 
 # Python shell in ETL container
 etl-python:
-	docker-compose exec etl_app python
+	$(DOCKER_COMPOSE) exec etl_app python
 
 # Run bootstrap in container
 bootstrap:
-	docker-compose exec etl_app ride-booking-bootstrap
+	$(DOCKER_COMPOSE) exec etl_app ride-booking-bootstrap
 
 # Run example usage
 example:
-	docker-compose exec etl_app python app/adapters/example_usage.py
+	$(DOCKER_COMPOSE) exec etl_app python app/adapters/example_usage.py
 
 # Run tests
 test:
-	docker-compose exec etl_app pytest -v
+	$(DOCKER_COMPOSE) exec etl_app pytest -v
 
 # Install dependencies locally
 install:
@@ -90,7 +93,7 @@ install:
 
 # Check service status
 status:
-	docker-compose ps
+	$(DOCKER_COMPOSE) ps
 
 # View resource usage
 stats:
