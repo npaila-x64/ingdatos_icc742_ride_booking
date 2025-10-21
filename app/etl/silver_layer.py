@@ -83,7 +83,7 @@ def _transform_customer_dimension(
     
     # Upsert: insert new customers or update existing ones
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in customers_df.iterrows():
             upsert_query = text("""
                 INSERT INTO silver.customer (customer_id, first_seen_date, last_seen_date, total_bookings, created_at, updated_at)
@@ -96,7 +96,6 @@ def _transform_customer_dimension(
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} customers to Silver")
     return rows_affected
@@ -128,7 +127,7 @@ def _transform_vehicle_type_dimension(
     
     # Insert only new vehicle types (ignore duplicates)
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in vehicle_types_df.iterrows():
             insert_query = text("""
                 INSERT INTO silver.vehicle_type (name, created_at, updated_at)
@@ -137,7 +136,6 @@ def _transform_vehicle_type_dimension(
             """)
             conn.execute(insert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} vehicle types to Silver")
     return rows_affected
@@ -168,7 +166,7 @@ def _transform_location_dimension(
     locations_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in locations_df.iterrows():
             insert_query = text("""
                 INSERT INTO silver.location (name, created_at, updated_at)
@@ -177,7 +175,6 @@ def _transform_location_dimension(
             """)
             conn.execute(insert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} locations to Silver")
     return rows_affected
@@ -208,7 +205,7 @@ def _transform_booking_status_dimension(
     statuses_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in statuses_df.iterrows():
             insert_query = text("""
                 INSERT INTO silver.booking_status (name, created_at, updated_at)
@@ -217,7 +214,6 @@ def _transform_booking_status_dimension(
             """)
             conn.execute(insert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} booking statuses to Silver")
     return rows_affected
@@ -248,7 +244,7 @@ def _transform_payment_method_dimension(
     methods_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in methods_df.iterrows():
             insert_query = text("""
                 INSERT INTO silver.payment_method (name, created_at, updated_at)
@@ -257,7 +253,6 @@ def _transform_payment_method_dimension(
             """)
             conn.execute(insert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} payment methods to Silver")
     return rows_affected
@@ -303,7 +298,7 @@ def _transform_booking_fact(
     bookings_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in bookings_df.iterrows():
             upsert_query = text("""
                 INSERT INTO silver.booking (
@@ -330,7 +325,6 @@ def _transform_booking_fact(
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} bookings to Silver")
     return rows_affected
@@ -368,7 +362,7 @@ def _transform_ride_fact(
     rides_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in rides_df.iterrows():
             upsert_query = text("""
                 INSERT INTO silver.ride (
@@ -389,7 +383,6 @@ def _transform_ride_fact(
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} rides to Silver")
     return rows_affected
@@ -426,7 +419,7 @@ def _transform_cancelled_ride_fact(
     # For cancelled rides, we might have multiple cancellations per booking (customer + driver)
     # So we insert without conflict handling, or use a composite unique key
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in cancelled_df.iterrows():
             # Check if this combination exists
             check_query = text("""
@@ -449,7 +442,6 @@ def _transform_cancelled_ride_fact(
                 """)
                 conn.execute(insert_query, row.to_dict())
                 rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} cancelled rides to Silver")
     return rows_affected
@@ -483,7 +475,7 @@ def _transform_incompleted_ride_fact(
     incompleted_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in incompleted_df.iterrows():
             upsert_query = text("""
                 INSERT INTO silver.incompleted_ride (
@@ -498,7 +490,6 @@ def _transform_incompleted_ride_fact(
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Transformed {rows_affected} incompleted rides to Silver")
     return rows_affected

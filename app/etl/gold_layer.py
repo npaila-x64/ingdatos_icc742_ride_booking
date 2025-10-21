@@ -81,7 +81,7 @@ def _aggregate_daily_summary(
     
     # Upsert daily summaries
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in summary_df.iterrows():
             upsert_query = text("""
                 INSERT INTO gold.daily_booking_summary (
@@ -107,7 +107,6 @@ def _aggregate_daily_summary(
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Aggregated {rows_affected} daily summaries to Gold")
     return rows_affected
@@ -145,7 +144,7 @@ def _aggregate_customer_analytics(db_adapter: PostgreSQLAdapter) -> int:
     customer_analytics_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in customer_analytics_df.iterrows():
             upsert_query = text("""
                 INSERT INTO gold.customer_analytics (
@@ -171,7 +170,6 @@ def _aggregate_customer_analytics(db_adapter: PostgreSQLAdapter) -> int:
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Aggregated {rows_affected} customer analytics to Gold")
     return rows_affected
@@ -203,7 +201,7 @@ def _aggregate_location_analytics(db_adapter: PostgreSQLAdapter) -> int:
     location_analytics_df['updated_at'] = datetime.now()
     
     rows_affected = 0
-    with db_adapter.connection() as conn:
+    with db_adapter.engine.begin() as conn:
         for _, row in location_analytics_df.iterrows():
             upsert_query = text("""
                 INSERT INTO gold.location_analytics (
@@ -223,7 +221,6 @@ def _aggregate_location_analytics(db_adapter: PostgreSQLAdapter) -> int:
             """)
             conn.execute(upsert_query, row.to_dict())
             rows_affected += 1
-        conn.commit()
     
     logger.info(f"Aggregated {rows_affected} location analytics to Gold")
     return rows_affected
