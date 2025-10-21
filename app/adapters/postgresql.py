@@ -171,9 +171,9 @@ class PostgreSQLAdapter:
         df: pd.DataFrame,
         table_name: str,
         schema: Optional[str] = None,
-        if_exists: str = "append",
+        if_exists: str = "append",  # Literal['fail', 'replace', 'append']
         index: bool = False,
-        method: Optional[str] = None,
+        method: Optional[str] = None,  # Literal['multi'] or callable
         chunksize: Optional[int] = None,
     ) -> int:
         """Write a pandas DataFrame to a database table.

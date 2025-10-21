@@ -1,111 +1,213 @@
-# Ride Booking ETL with Prefect
+# Ride Booking ETL with Prefect - Medallion Architecture
 
-Prefect-based ETL scaffolding for the ingdatos ICC742 ride booking initiative. The
-repository contains the project skeleton, environment bootstrap helpers, and
-configuration utilities required before building Prefect flows.
+A production-ready ETL pipeline implementing the **Medallion Architecture** (Bronze → Silver → Gold) for ride booking analytics. This project processes ride booking data from CSV files into a multi-layered analytical data warehouse using **Prefect** orchestration and **PostgreSQL** storage.
 
-## Features
-- **PostgreSQL Integration**: Fully-featured database adapter with SQLAlchemy
-- **Prefect Orchestration**: ETL workflow management and scheduling
-- **Configuration Management**: Environment-based settings with strong typing
-- **Data Processing**: pandas integration for data transformations
-- **Docker Support**: Containerized deployment with Docker Compose
+## 🎯 Overview
 
-## Requirements
+This repository contains a complete ETL pipeline that:
+- **Extracts** ride booking data from CSV files into a Bronze (raw) layer
+- **Transforms** data into a normalized Silver (dimensional) layer
+- **Aggregates** analytics into a Gold (metrics) layer
+- **Orchestrates** the entire pipeline with Prefect workflows
 
-### Local Development
+### Key Features
+
+✅ **Medallion Architecture** - Industry-standard data lake pattern (Bronze → Silver → Gold)  
+✅ **Prefect Orchestration** - Robust workflow management with retries and monitoring  
+✅ **PostgreSQL Storage** - ACID-compliant relational database with schema separation  
+✅ **Incremental Processing** - Efficient monthly data partitioning  
+✅ **Idempotent Operations** - Safe to re-run with upsert logic  
+✅ **Docker Support** - Containerized deployment with Docker Compose  
+✅ **Type Safety** - Pydantic models and type hints throughout  
+
+## 📚 Documentation
+
+- **[ETL_README.md](ETL_README.md)** - Complete ETL architecture and usage guide
+- **[DOCKER.md](DOCKER.md)** - Docker deployment instructions
+- **[examples/](examples/)** - Example scripts and usage patterns
+
+## 🏗️ Architecture
+
+```
+CSV Source → Bronze (Raw) → Silver (Normalized) → Gold (Analytics)
+              ↓                ↓                    ↓
+          Partitioned      Star Schema         Aggregated
+          by Month        Fact/Dimension        Metrics
+```
+
+**Layers:**
+- **Bronze**: Raw data extraction with monthly partitioning
+- **Silver**: Normalized dimensional model (customers, bookings, rides, locations, etc.)
+- **Gold**: Pre-aggregated analytics (daily summaries, customer metrics, location stats)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
 - Python 3.10+
-- PostgreSQL 12+ (for database operations)
-- Prefect Cloud account or Prefect Server (optional for local development)
-- Access to the ride booking data sources (to be integrated in future tasks)
+- Docker & Docker Compose (recommended)
+- PostgreSQL 12+ (if running locally)
 
-### Docker Deployment
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- At least 2GB of free disk space
+### Using Docker (Recommended)
 
-## Installation Options
-
-### Option 1: Docker (Recommended)
-
-See [DOCKER.md](DOCKER.md) for detailed Docker setup instructions.
-
-**Quick Start:**
 ```bash
-# Copy environment template
-cp .env.docker .env
+# 1. Clone and navigate to repository
+cd ingdatos_icc742_ride_booking
 
-# Start services (PostgreSQL + ETL App)
+# 2. Copy environment configuration
+cp .env.example .env
+
+# 3. Start PostgreSQL database
 make up
-# or
-docker-compose up -d
+# or: docker-compose up -d postgres
 
-# Access services:
-# - PostgreSQL: localhost:5432
-# - pgAdmin (dev): http://localhost:5050
-# - Prefect (optional): http://localhost:4200
+# 4. Run the ETL pipeline
+make etl-run
+# or: python -m app.etl.cli run
+
+# 5. (Optional) Run example with diagnostics
+make etl-example
+# or: python examples/run_etl_example.py
 ```
 
-**Common Docker Commands:**
+**View Results:**
 ```bash
-make help          # View all available commands
-make up-dev        # Start with pgAdmin
-make logs          # View logs
-make db-shell      # Connect to PostgreSQL
-make etl-shell     # Open ETL container shell
-make example       # Run example usage
-make down          # Stop services
+# Query database
+make db-shell
+# Then run: SELECT * FROM gold.daily_booking_summary LIMIT 10;
+
+# Or use pgAdmin
+make up-dev  # Start pgAdmin at http://localhost:5050
 ```
 
-### Option 2: Local Installation
-### Option 2: Local Installation
+### Local Installation
 
-1. Create and activate a Python virtual environment.
-2. Install dependencies in editable mode:
-	 ```bash
-	 pip install -e .[dev]
-	 ```
-3. Copy `.env.example` to `.env` and adjust values to match your environment:
-	 ```bash
-	 cp .env.example .env
-	 # Edit .env with your PostgreSQL credentials
-	 ```
-4. Run the bootstrap script to create directories, persist a settings snapshot, and
-	 register the Prefect profile:
-	 ```bash
-	 ride-booking-bootstrap
-	 ```
+```bash
+# 1. Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 2. Install dependencies
+pip install -e .[dev]
+
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with your PostgreSQL credentials
+
+# 4. Run bootstrap (creates Prefect profile)
+ride-booking-bootstrap
+
+# 5. Run ETL pipeline
+python -m app.etl.cli run
+```
+
+## 📖 Usage
+
+### Command-Line Interface
+
+```bash
+# Run full ETL pipeline (Bronze → Silver → Gold)
+python -m app.etl.cli run
+
+# Process specific file
+python -m app.etl.cli run --source-file data/my_bookings.csv
+
+# Incremental load (for new monthly data)
+python -m app.etl.cli incremental --source-file data/2024-10-bookings.csv
+
+# Backfill (reprocess Silver and Gold from existing Bronze)
+python -m app.etl.cli backfill
+
+# Skip specific layers
+python -m app.etl.cli run --skip-gold
+```
+
+### Python API
+
+```python
+from app.etl.flows import ride_booking_etl
+from datetime import datetime
+
+# Run full pipeline
+results = ride_booking_etl(
+    source_file="data/ncr_ride_bookings.csv",
+    extraction_date=datetime(2024, 10, 21),
+    run_bronze=True,
+    run_silver=True,
+    run_gold=True,
+)
+
+print(results)
+# Output: Row counts for each layer and table
+```
+
+### Makefile Commands
+
+```bash
+make help            # Show all available commands
+make etl-run         # Run full ETL pipeline
+make etl-example     # Run example with diagnostics
+make etl-backfill    # Reprocess Silver and Gold layers
+make db-query-bronze # Query Bronze layer stats
+make db-query-silver # Query Silver layer stats
+make db-query-gold   # Query Gold layer stats
+```
+
+## 📊 Data Model
+
+### Bronze Layer (Raw Staging)
+- `customer` - Unique customers per booking
+- `vehicle_type` - Vehicle types used
+- `location` - Pickup and drop locations
+- `booking` - Main booking records
+- `booking_status` - Booking status values
+- `payment_method` - Payment methods
+- `ride` - Completed ride data
+- `cancelled_ride` - Cancellation records
+- `incompleted_ride` - Incomplete ride records
+
+All Bronze tables partitioned by `extraction_month` (YYYY-MM format).
+
+### Silver Layer (Normalized Model)
+
+**Dimensions:**
+- `customer` - Customer master
+- `vehicle_type` - Vehicle type lookup
+- `location` - Location lookup
+- `booking_status` - Status codes
+- `payment_method` - Payment types
+
+**Facts:**
+- `booking` - Central fact table with FKs to all dimensions
+- `ride` - Completed ride metrics (distance, ratings, TAT)
+- `cancelled_ride` - Cancellation details
+- `incompleted_ride` - Incomplete ride reasons
+
+### Gold Layer (Analytics)
+- `daily_booking_summary` - Daily aggregated metrics
+- `customer_analytics` - Customer-level KPIs
+- `location_analytics` - Location-level statistics
 
 ## PostgreSQL Adapter
+
 The project includes a comprehensive PostgreSQL adapter for database operations:
 
 ### Basic Usage
 ```python
 from app.adapters.postgresql import PostgreSQLAdapter
 from app.config.settings import load_settings
-from dotenv import load_dotenv
 
 # Load configuration
-load_dotenv()
 settings = load_settings()
 
 # Initialize adapter
 adapter = PostgreSQLAdapter(settings.database)
 
 # Read data
-df = adapter.read_table("rides", columns=["id", "passenger_id", "fare"])
+df = adapter.read_table("booking", schema="silver")
 
 # Write data
-adapter.write_table(df, "processed_rides", if_exists="append")
-
-# Execute queries
-results = adapter.execute_query(
-    "SELECT * FROM rides WHERE fare > :min_fare",
-    params={"min_fare": 20.0}
-)
-
-# Clean up
-adapter.close()
+adapter.write_table(df, "processed_bookings", if_exists="append")
 ```
 
 ### Context Manager Pattern

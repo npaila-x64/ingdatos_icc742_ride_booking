@@ -1,4 +1,4 @@
-.PHONY: help build up down restart logs clean test db-init
+.PHONY: help build up down restart logs clean install test etl-run etl-example test db-init
 
 # Docker Compose command (v2)
 DOCKER_COMPOSE := docker compose
@@ -20,6 +20,11 @@ help:
 	@echo "  make etl-shell   - Open shell in ETL container"
 	@echo "  make test        - Run tests in container"
 	@echo "  make install     - Install dependencies locally"
+	@echo ""
+	@echo "ETL Commands:"
+	@echo "  make etl-run     - Run full ETL pipeline"
+	@echo "  make etl-example - Run example ETL demonstration"
+	@echo "  make etl-backfill - Reprocess Silver and Gold layers"
 
 # Build Docker images
 build:
@@ -98,3 +103,50 @@ status:
 # View resource usage
 stats:
 	docker stats --no-stream
+
+# ============================================================================
+# ETL Pipeline Commands
+# ============================================================================
+
+# Run full ETL pipeline (Bronze -> Silver -> Gold)
+etl-run:
+	python -m app.etl.cli run
+
+# Run ETL example with diagnostics
+etl-example:
+	python examples/run_etl_example.py
+
+# Run incremental ETL for specific file
+etl-incremental:
+	python -m app.etl.cli incremental --source-file data/ncr_ride_bookings.csv
+
+# Backfill Silver and Gold layers
+etl-backfill:
+	python -m app.etl.cli backfill
+
+# Initialize database schemas
+db-init:
+	docker-compose exec postgres psql -U postgres -d ride_booking -f /docker-entrypoint-initdb.d/02_create_medallion_schema.sql
+
+# Query Bronze layer stats
+db-query-bronze:
+	docker-compose exec postgres psql -U postgres -d ride_booking -c "\
+		SELECT 'bronze.booking' as table_name, COUNT(*) as row_count FROM bronze.booking \
+		UNION ALL \
+		SELECT 'bronze.customer', COUNT(*) FROM bronze.customer \
+		UNION ALL \
+		SELECT 'bronze.ride', COUNT(*) FROM bronze.ride;"
+
+# Query Silver layer stats
+db-query-silver:
+	docker-compose exec postgres psql -U postgres -d ride_booking -c "\
+		SELECT 'silver.booking' as table_name, COUNT(*) as row_count FROM silver.booking \
+		UNION ALL \
+		SELECT 'silver.customer', COUNT(*) FROM silver.customer \
+		UNION ALL \
+		SELECT 'silver.ride', COUNT(*) FROM silver.ride;"
+
+# Query Gold layer stats
+db-query-gold:
+	docker-compose exec postgres psql -U postgres -d ride_booking -c "\
+		SELECT * FROM gold.daily_booking_summary ORDER BY summary_date DESC LIMIT 10;"

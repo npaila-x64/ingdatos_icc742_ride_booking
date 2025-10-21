@@ -20,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 ride-booking-bootstrap = "app.etl.bootstrap:run_bootstrap"
+ride-booking-etl = "app.etl.cli:main"
 
 [project.optional-dependencies]
 dev = [
