@@ -37,8 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user with home directory
+RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
 # Create working directory
 WORKDIR /app
@@ -53,9 +53,9 @@ COPY --chown=appuser:appuser data/ ./data/
 COPY --chown=appuser:appuser prefect.yaml ./
 COPY --chown=appuser:appuser pyproject.toml README.md ./
 
-# Create directories for data and logs
-RUN mkdir -p data/raw data/processed data/logs && \
-    chown -R appuser:appuser /app
+# Create directories for data, logs, and prefect
+RUN mkdir -p data/raw data/processed data/logs /home/appuser/.prefect && \
+    chown -R appuser:appuser /app /home/appuser
 
 # Switch to non-root user
 USER appuser
