@@ -9,6 +9,26 @@ from typing import Optional
 
 
 @dataclass(frozen=True)
+class DatabaseSettings:
+    """PostgreSQL database configuration."""
+
+    host: str = "localhost"
+    port: int = 5432
+    database: str = "ride_booking"
+    user: str = "postgres"
+    password: str = ""
+    schema: str = "public"
+
+    @property
+    def connection_string(self) -> str:
+        """Build SQLAlchemy connection string."""
+        return (
+            f"postgresql+psycopg2://{self.user}:{self.password}"
+            f"@{self.host}:{self.port}/{self.database}"
+        )
+
+
+@dataclass(frozen=True)
 class PrefectSettings:
     """Subset of Prefect configuration values that the project relies on."""
 
@@ -25,6 +45,7 @@ class ProjectSettings:
     base_path: Path
     data_path: Path
     prefect: PrefectSettings
+    database: DatabaseSettings
 
 
 def load_settings() -> ProjectSettings:
@@ -40,8 +61,18 @@ def load_settings() -> ProjectSettings:
         work_pool=os.getenv("PREFECT_WORK_POOL", ""),
     )
 
+    database_settings = DatabaseSettings(
+        host=os.getenv("DB_HOST", DatabaseSettings.host),
+        port=int(os.getenv("DB_PORT", str(DatabaseSettings.port))),
+        database=os.getenv("DB_NAME", DatabaseSettings.database),
+        user=os.getenv("DB_USER", DatabaseSettings.user),
+        password=os.getenv("DB_PASSWORD", ""),
+        schema=os.getenv("DB_SCHEMA", DatabaseSettings.schema),
+    )
+
     return ProjectSettings(
         base_path=base_path,
         data_path=data_path,
         prefect=prefect_settings,
+        database=database_settings,
     )

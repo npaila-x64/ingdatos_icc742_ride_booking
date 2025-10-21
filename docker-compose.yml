@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ride_booking_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-ride_booking}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-ride_booking}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ride_booking_network
+
+  # pgAdmin - PostgreSQL Web UI (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ride_booking_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ridebooking.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ride_booking_network
+    profiles:
+      - dev
+
+  # ETL Application
+  etl_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ride_booking_etl
+    restart: unless-stopped
+    environment:
+      # Project settings
+      PROJECT_BASE_PATH: /app
+      PROJECT_DATA_DIR: data
+      
+      # Database settings
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-ride_booking}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_SCHEMA: ${DB_SCHEMA:-public}
+      
+      # Prefect settings
+      PREFECT_PROFILE: ${PREFECT_PROFILE:-ride-booking-local}
+      PREFECT_API_URL: ${PREFECT_API_URL:-}
+      PREFECT_STORAGE_BLOCK: ${PREFECT_STORAGE_BLOCK:-}
+      PREFECT_WORK_POOL: ${PREFECT_WORK_POOL:-}
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app
+      - etl_logs:/app/data/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ride_booking_network
+    command: ["python", "-c", "import time; print('ETL app ready'); time.sleep(infinity)"]
+
+  # Prefect Server (optional - for local orchestration)
+  prefect_server:
+    image: prefecthq/prefect:2-python3.11
+    container_name: ride_booking_prefect
+    restart: unless-stopped
+    environment:
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/prefect
+    ports:
+      - "${PREFECT_PORT:-4200}:4200"
+    volumes:
+      - prefect_data:/root/.prefect
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ride_booking_network
+    profiles:
+      - prefect
+    command: prefect server start --host 0.0.0.0
+
+networks:
+  ride_booking_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  etl_logs:
+    driver: local
+  prefect_data:
+    driver: local
