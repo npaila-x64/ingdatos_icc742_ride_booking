@@ -17,7 +17,7 @@ from datetime import datetime
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.etl.flows import ride_booking_etl
+from app.etl.flows import granular_ride_booking_etl
 
 # ============================================================================
 # CONFIGURATION - UPDATE THESE VALUES FOR YOUR DATE SLICE
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     print()
     
     # Run the complete ETL pipeline
-    results = ride_booking_etl(
+    results = granular_ride_booking_etl(
         source_file="data/ncr_ride_bookings.csv",
         extraction_date=extraction_date,
         run_bronze=True,   # Set to False if you want to skip Bronze extraction

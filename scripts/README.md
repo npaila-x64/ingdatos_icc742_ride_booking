@@ -150,7 +150,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from app.etl.flows import ride_booking_etl
+from app.etl.flows import granular_ride_booking_etl
 
 # Process multiple months
 months = [
@@ -163,7 +163,7 @@ for year, month in months:
     print(f"\nProcessing {year}-{month:02d}...")
     extraction_date = datetime(year, month, 1)
     
-    ride_booking_etl(
+    granular_ride_booking_etl(
         source_file="data/ncr_ride_bookings.csv",
         extraction_date=extraction_date,
         run_bronze=True,

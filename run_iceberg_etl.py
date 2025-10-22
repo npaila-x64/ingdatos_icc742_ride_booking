@@ -8,13 +8,13 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from app.etl.flows import ride_booking_etl
+from app.etl.flows import granular_ride_booking_etl
 
 if __name__ == "__main__":
     print("Starting Iceberg-based ETL pipeline...")
     print("=" * 80)
     
-    results = ride_booking_etl()
+    results = granular_ride_booking_etl()
     
     print("\n" + "=" * 80)
     print("ETL Pipeline Completed!")
