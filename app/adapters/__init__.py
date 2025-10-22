@@ -1,5 +1,5 @@
 """Database and external service adapters."""
 
-from app.adapters.postgresql import PostgreSQLAdapter
+from app.adapters.iceberg_adapter import IcebergAdapter
 
-__all__ = ["PostgreSQLAdapter"]
+__all__ = ["IcebergAdapter"]

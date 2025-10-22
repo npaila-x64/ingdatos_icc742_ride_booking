@@ -1,4 +1,4 @@
-"""Main Prefect flow orchestrating the medallion architecture ETL pipeline."""
+"""Main Prefect flow orchestrating the medallion architecture ETL pipeline with Apache Iceberg."""
 
 from __future__ import annotations
 
@@ -9,30 +9,30 @@ from typing import Optional
 
 from prefect import flow, task
 
-from app.adapters.postgresql import PostgreSQLAdapter
+from app.adapters.iceberg_adapter import IcebergAdapter
 from app.config.settings import load_settings
 from app.etl.bronze_layer import extract_to_bronze
-from app.etl.gold_layer import aggregate_to_gold
-from app.etl.silver_layer import transform_to_silver
+from app.etl.gold_layer_iceberg import aggregate_to_gold
+from app.etl.silver_layer_iceberg import transform_to_silver
 
 logger = logging.getLogger(__name__)
 
 
-@task(name="initialize-database")
-def initialize_database(db_adapter: PostgreSQLAdapter) -> None:
-    """Ensure database schemas are created."""
-    logger.info("Initializing database schemas")
+@task(name="initialize-iceberg-namespaces")
+def initialize_iceberg_namespaces(iceberg_adapter: IcebergAdapter) -> None:
+    """Ensure Iceberg namespaces (schemas) are created."""
+    logger.info("Initializing Iceberg namespaces")
     
-    # Create schemas if they don't exist
-    for schema in ['bronze', 'silver', 'gold']:
-        db_adapter.create_schema(schema, if_not_exists=True)
+    # Create namespaces if they don't exist
+    for namespace in ['bronze', 'silver', 'gold']:
+        iceberg_adapter.create_namespace(namespace)
     
-    logger.info("Database schemas initialized")
+    logger.info("Iceberg namespaces initialized")
 
 
 @flow(
     name="ride-booking-medallion-etl",
-    description="ETL pipeline implementing medallion architecture for ride booking data",
+    description="ETL pipeline implementing medallion architecture for ride booking data with Apache Iceberg",
     log_prints=True,
 )
 def ride_booking_etl(
@@ -42,7 +42,7 @@ def ride_booking_etl(
     run_silver: bool = True,
     run_gold: bool = True,
 ) -> dict[str, dict[str, int]]:
-    """Main ETL flow orchestrating Bronze -> Silver -> Gold transformations.
+    """Main ETL flow orchestrating Bronze -> Silver -> Gold transformations with Apache Iceberg.
     
     Args:
         source_file: Path to source CSV file (defaults to data/ncr_ride_bookings.csv)
@@ -69,23 +69,24 @@ def ride_booking_etl(
     
     logger.info(f"Starting ETL pipeline for {source_path.name}")
     logger.info(f"Extraction date: {extraction_date.date()}, Month: {extraction_month}")
+    logger.info(f"Iceberg warehouse: {settings.iceberg.warehouse_path}")
     
-    # Initialize database adapter
-    db_adapter = PostgreSQLAdapter(settings.database)
+    # Initialize Iceberg adapter
+    iceberg_adapter = IcebergAdapter(settings.iceberg)
     
-    # Initialize database schemas
-    initialize_database(db_adapter)
+    # Initialize Iceberg namespaces
+    initialize_iceberg_namespaces(iceberg_adapter)
     
     results = {}
     
     # Bronze Layer: Extract raw data
     if run_bronze:
         logger.info("=" * 80)
-        logger.info("BRONZE LAYER: Extracting raw data")
+        logger.info("BRONZE LAYER: Extracting raw data to Iceberg tables")
         logger.info("=" * 80)
         bronze_results = extract_to_bronze(
             source_file=source_path,
-            db_adapter=db_adapter,
+            iceberg_adapter=iceberg_adapter,
             extraction_date=extraction_date,
         )
         results['bronze'] = bronze_results
@@ -94,10 +95,10 @@ def ride_booking_etl(
     # Silver Layer: Transform to normalized model
     if run_silver:
         logger.info("=" * 80)
-        logger.info("SILVER LAYER: Transforming to dimensional model")
+        logger.info("SILVER LAYER: Transforming to dimensional model in Iceberg")
         logger.info("=" * 80)
         silver_results = transform_to_silver(
-            db_adapter=db_adapter,
+            iceberg_adapter=iceberg_adapter,
             extraction_month=extraction_month if run_bronze else None,
         )
         results['silver'] = silver_results
@@ -106,22 +107,20 @@ def ride_booking_etl(
     # Gold Layer: Aggregate analytics
     if run_gold:
         logger.info("=" * 80)
-        logger.info("GOLD LAYER: Aggregating analytics")
+        logger.info("GOLD LAYER: Aggregating analytics in Iceberg")
         logger.info("=" * 80)
         gold_results = aggregate_to_gold(
-            db_adapter=db_adapter,
+            iceberg_adapter=iceberg_adapter,
             target_date=extraction_date if run_bronze else None,
         )
         results['gold'] = gold_results
         logger.info(f"Gold aggregation completed: {sum(gold_results.values())} total rows")
     
-    # Cleanup
-    db_adapter.close()
-    
     logger.info("=" * 80)
     logger.info("ETL PIPELINE COMPLETED SUCCESSFULLY")
     logger.info("=" * 80)
     logger.info(f"Total results: {results}")
+    logger.info(f"Data stored in: {settings.iceberg.warehouse_path}")
     
     return results
 

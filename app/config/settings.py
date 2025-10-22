@@ -9,23 +9,17 @@ from typing import Optional
 
 
 @dataclass(frozen=True)
-class DatabaseSettings:
-    """PostgreSQL database configuration."""
+class IcebergSettings:
+    """Apache Iceberg configuration with filesystem catalog."""
 
-    host: str = "localhost"
-    port: int = 5432
-    database: str = "ride_booking"
-    user: str = "postgres"
-    password: str = ""
-    schema: str = "public"
+    warehouse_path: Path
 
-    @property
-    def connection_string(self) -> str:
-        """Build SQLAlchemy connection string."""
-        return (
-            f"postgresql+psycopg2://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.database}"
-        )
+    @classmethod
+    def from_env(cls, base_path: Path) -> "IcebergSettings":
+        """Create settings from environment variables."""
+        warehouse_dir = os.getenv("ICEBERG_WAREHOUSE", "warehouse")
+        warehouse_path = (base_path / warehouse_dir).resolve()
+        return cls(warehouse_path=warehouse_path)
 
 
 @dataclass(frozen=True)
@@ -45,7 +39,7 @@ class ProjectSettings:
     base_path: Path
     data_path: Path
     prefect: PrefectSettings
-    database: DatabaseSettings
+    iceberg: IcebergSettings
 
 
 def load_settings() -> ProjectSettings:
@@ -61,18 +55,11 @@ def load_settings() -> ProjectSettings:
         work_pool=os.getenv("PREFECT_WORK_POOL", ""),
     )
 
-    database_settings = DatabaseSettings(
-        host=os.getenv("DB_HOST", DatabaseSettings.host),
-        port=int(os.getenv("DB_PORT", str(DatabaseSettings.port))),
-        database=os.getenv("DB_NAME", DatabaseSettings.database),
-        user=os.getenv("DB_USER", DatabaseSettings.user),
-        password=os.getenv("DB_PASSWORD", ""),
-        schema=os.getenv("DB_SCHEMA", DatabaseSettings.schema),
-    )
+    iceberg_settings = IcebergSettings.from_env(base_path)
 
     return ProjectSettings(
         base_path=base_path,
         data_path=data_path,
         prefect=prefect_settings,
-        database=database_settings,
+        iceberg=iceberg_settings,
     )
