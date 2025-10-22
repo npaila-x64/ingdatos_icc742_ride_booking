@@ -23,3 +23,25 @@ This repository contains a complete ETL pipeline that:
 ## 📚 Documentation
 
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
+- **[ETL_ARCHITECTURE.md](ETL_ARCHITECTURE.md)** - Architecture details
+- **[streamlit_apps/](streamlit_apps/)** - Web visualization dashboards
+
+## 🎨 Visualization & Querying
+
+Interactive web-based tools for exploring your Iceberg data:
+
+### 📊 Analytics Dashboard
+Pre-built visualizations for business insights:
+```bash
+./run_dashboard.sh
+# Open http://localhost:8501
+```
+
+### 🔍 SQL Query Interface
+Custom SQL queries with DuckDB:
+```bash
+./run_sql_query.sh
+# Open http://localhost:8502
+```
+
+See **[streamlit_apps/README.md](streamlit_apps/README.md)** for detailed usage instructions.
