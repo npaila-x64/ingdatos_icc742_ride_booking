@@ -1,33 +1,15 @@
-# Quick Start Guide - Ride Booking ETL
+# Quick Start Guide - Ride Booking ETL (Apache Iceberg)
 
-Get up and running with the Ride Booking ETL pipeline in 5 minutes.
+Get up and running with the Ride Booking ETL pipeline using Apache Iceberg in 5 minutes.
 
 ## 1. Prerequisites Check
 
 ```bash
 # Check Python version (requires 3.10+)
 python --version
-
-# Check Docker (recommended)
-docker --version
-docker-compose --version
 ```
 
-## 2. Setup (Choose One Method)
-
-### Method A: Docker (Easiest)
-
-```bash
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Wait for database to be ready (~10 seconds)
-docker-compose ps
-
-# You should see postgres as "healthy"
-```
-
-### Method B: Local Python
+## 2. Setup
 
 ```bash
 # Create virtual environment
@@ -37,39 +19,38 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -e .
 
-# Ensure PostgreSQL is running locally
-# Update .env with your database credentials
+# Set up environment variables (optional)
 cp .env.example .env
-# Edit .env file with your DB settings
+# Edit .env file if needed
 ```
 
 ## 3. Run Your First ETL
 
 ```bash
-# Using Python directly (works for both methods)
-python -m app.etl.cli run
+# Using Python directly
+python run_iceberg_etl.py
 
-# Or using make (if Docker)
+# Or using make
 make etl-run
 ```
 
 Expected output:
 ```
 ================================================================================
-BRONZE LAYER: Extracting raw data
+BRONZE LAYER: Extracting raw data to Iceberg
 ================================================================================
 Loaded 150,001 rows from source file
 Bronze extraction completed: 150,000+ total rows
 
 ================================================================================
-SILVER LAYER: Transforming to dimensional model
+SILVER LAYER: Transforming to dimensional model in Iceberg
 ================================================================================
 Transformed X customers to Silver
 Transformed X bookings to Silver
 ...
 
 ================================================================================
-GOLD LAYER: Aggregating analytics
+GOLD LAYER: Aggregating analytics in Iceberg
 ================================================================================
 Aggregated X daily summaries to Gold
 ...
@@ -81,160 +62,124 @@ ETL PIPELINE COMPLETED SUCCESSFULLY
 
 ## 4. Verify Results
 
-### Option A: Command Line
-
-```bash
-# Query database directly
-docker-compose exec postgres psql -U postgres -d ride_booking
-
-# Then run SQL:
-SELECT * FROM gold.daily_booking_summary ORDER BY summary_date DESC LIMIT 5;
-```
-
-### Option B: pgAdmin (GUI)
-
-```bash
-# Start pgAdmin
-docker-compose --profile dev up -d pgadmin
-
-# Open browser: http://localhost:5050
-# Login: admin@ridebooking.com / admin
-
-# Add server:
-# Host: postgres
-# Port: 5432
-# User: postgres
-# Password: postgres
-```
-
-### Option C: Python Query
+### Query Iceberg Tables with Python
 
 ```python
-from app.adapters.postgresql import PostgreSQLAdapter
+from pyiceberg.catalog import load_catalog
+
+# Load catalog
+catalog = load_catalog("default", 
+    type="rest",
+    uri="http://localhost:8181",
+    warehouse="warehouse"
+)
+
+# Query Gold layer
+table = catalog.load_table("gold.daily_booking_summary")
+df = table.scan().to_pandas()
+print(df.head())
+```
+
+### Explore with PyArrow
+
+```python
+from app.adapters.iceberg_adapter import IcebergAdapter
 from app.config.settings import load_settings
 
 settings = load_settings()
-adapter = PostgreSQLAdapter(settings.database)
+adapter = IcebergAdapter(settings.iceberg)
 
-# Query Gold layer
-results = adapter.execute_query("""
-    SELECT summary_date, total_bookings, total_revenue 
-    FROM gold.daily_booking_summary 
-    ORDER BY summary_date DESC 
-    LIMIT 5
-""")
-
-for row in results:
-    print(f"{row['summary_date']}: {row['total_bookings']} bookings, ${row['total_revenue']}")
-
-adapter.close()
+# Read Gold layer table
+df = adapter.read_table("gold", "daily_booking_summary")
+print(f"Total rows: {len(df)}")
+print(df.head())
 ```
 
 ## 5. Explore the Data
 
 ### Check Layer Statistics
 
-```bash
-# Bronze layer
-make db-query-bronze
+```python
+import pyarrow.parquet as pq
+from pathlib import Path
 
-# Silver layer
-make db-query-silver
+# Bronze layer stats
+bronze_path = Path("warehouse/bronze/booking/data")
+if bronze_path.exists():
+    for file in bronze_path.glob("*.parquet"):
+        table = pq.read_table(file)
+        print(f"Bronze booking: {len(table)} rows")
 
-# Gold layer
-make db-query-gold
+# Similar for silver and gold
 ```
 
-### Sample Queries
+### Sample Analysis Queries
 
-```sql
--- Top 10 customers by total bookings
-SELECT 
-    customer_id, 
-    total_bookings, 
-    total_spent,
-    avg_rating
-FROM gold.customer_analytics
-ORDER BY total_bookings DESC
-LIMIT 10;
+```python
+from app.adapters.iceberg_adapter import IcebergAdapter
+from app.config.settings import load_settings
 
--- Busiest locations (by pickups)
-SELECT 
-    location_name,
-    total_pickups,
-    total_drops
-FROM gold.location_analytics
-ORDER BY total_pickups DESC
-LIMIT 10;
+settings = load_settings()
+adapter = IcebergAdapter(settings.iceberg)
 
--- Daily revenue trend
-SELECT 
-    summary_date,
-    total_bookings,
-    total_revenue,
-    avg_ride_distance
-FROM gold.daily_booking_summary
-ORDER BY summary_date DESC;
+# Top customers by total bookings
+customer_analytics = adapter.read_table("gold", "customer_analytics")
+top_customers = customer_analytics.nlargest(10, 'total_bookings')
+print(top_customers[['customer_id', 'total_bookings', 'total_spent']])
+
+# Daily revenue trend
+daily_summary = adapter.read_table("gold", "daily_booking_summary")
+print(daily_summary.sort_values('summary_date', ascending=False).head(10))
+
+# Busiest locations
+location_analytics = adapter.read_table("gold", "location_analytics")
+top_locations = location_analytics.nlargest(10, 'total_pickups')
+print(top_locations[['location_name', 'total_pickups', 'total_drops']])
 ```
 
 ## 6. Next Steps
 
-### Run Example with Diagnostics
+### Run with Different Options
 
 ```bash
-python examples/run_etl_example.py
-```
-
-This will:
-- ✓ Check database connection
-- ✓ Verify schemas
-- ✓ Count source rows
-- ✓ Run ETL pipeline
-- ✓ Query sample data from each layer
-
-### Explore Different Workflows
-
-```bash
-# Incremental load (for new data files)
-python -m app.etl.cli incremental --source-file data/new_bookings.csv
-
-# Backfill (reprocess Silver and Gold)
+# Run with backfill
 python -m app.etl.cli backfill
-
-# Run with specific date
-python -m app.etl.cli run --extraction-date 2024-10-21
-
-# Skip layers
-python -m app.etl.cli run --skip-bronze --skip-gold
 ```
 
-### View Logs
+### Explore Iceberg Features
 
-```bash
-# All services
-docker-compose logs -f
+```python
+from pyiceberg.catalog import load_catalog
 
-# Just database
-docker-compose logs -f postgres
+catalog = load_catalog("default", warehouse="warehouse")
 
-# Just ETL app
-docker-compose logs -f etl_app
+# List all tables
+tables = catalog.list_tables()
+print(f"Total tables: {len(tables)}")
+
+# Inspect table schema
+table = catalog.load_table("silver.booking")
+print(table.schema())
+
+# Check table history (time travel)
+print(table.history())
+
+# Read specific snapshot
+snapshot_id = table.current_snapshot().snapshot_id
+df = table.scan(snapshot_id=snapshot_id).to_pandas()
 ```
 
 ## Common Issues & Solutions
 
-### Issue: Database connection refused
+### Issue: PyIceberg not installed
 
 **Solution:**
 ```bash
-# Check if postgres is running
-docker-compose ps
+# Install dependencies
+pip install -e .
 
-# Restart if needed
-docker-compose restart postgres
-
-# Check logs
-docker-compose logs postgres
+# Or specifically
+pip install pyiceberg pyarrow pandas
 ```
 
 ### Issue: Source file not found
@@ -244,8 +189,8 @@ docker-compose logs postgres
 # Check file exists
 ls -lh data/ncr_ride_bookings.csv
 
-# Use absolute path
-python -m app.etl.cli run --source-file /full/path/to/data.csv
+# Use absolute path if needed
+python run_iceberg_etl.py
 ```
 
 ### Issue: Import errors
@@ -255,16 +200,16 @@ python -m app.etl.cli run --source-file /full/path/to/data.csv
 # Reinstall dependencies
 pip install -e .
 
-# Or in Docker
-docker-compose restart etl_app
+# Verify installation
+python -c "import pyiceberg; print(pyiceberg.__version__)"
 ```
 
 ## Help & Documentation
 
 - **Full ETL Documentation**: [ETL_README.md](ETL_README.md)
-- **Docker Guide**: [DOCKER.md](DOCKER.md)
+- **Iceberg Guide**: [ICEBERG_README.md](ICEBERG_README.md)
 - **Main README**: [README.md](README.md)
-- **Examples**: [examples/run_etl_example.py](examples/run_etl_example.py)
+- **Run Script**: [run_iceberg_etl.py](run_iceberg_etl.py)
 
 ### Get Help
 
@@ -274,23 +219,21 @@ python -m app.etl.cli --help
 
 # Makefile commands
 make help
-
-# Database help
-docker-compose exec postgres psql --help
 ```
 
 ## Summary
 
 You've now:
-1. ✅ Started the database
-2. ✅ Run the ETL pipeline
+1. ✅ Set up the Python environment
+2. ✅ Run the ETL pipeline with Iceberg
 3. ✅ Verified data in Bronze/Silver/Gold layers
 4. ✅ Queried analytics results
 
-**Your data warehouse is ready!** 🎉
+**Your Iceberg data lakehouse is ready!** 🎉
 
-Next, explore the [ETL_README.md](ETL_README.md) for advanced features like:
+Next, explore the [ICEBERG_README.md](ICEBERG_README.md) for advanced features like:
+- Time travel and versioning
+- Schema evolution
+- Partition pruning
 - Prefect orchestration and scheduling
-- Custom transformations
-- Performance tuning
-- Production deployment
+

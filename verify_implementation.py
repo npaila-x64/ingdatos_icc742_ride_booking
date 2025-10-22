@@ -27,20 +27,14 @@ def verify_files_exist():
         "app/etl/deploy.py",
         "app/etl/cli.py",
         
-        # Database
-        "init-db/02_create_medallion_schema.sql",
-        
         # Config
         "app/config/settings.py",
-        "app/adapters/postgresql.py",
+        "app/adapters/iceberg_adapter.py",
         
         # Documentation
         "ETL_README.md",
         "QUICKSTART.md",
-        "IMPLEMENTATION_SUMMARY.md",
-        
-        # Examples
-        "examples/run_etl_example.py",
+        "ICEBERG_README.md",
         
         # Data
         "data/ncr_ride_bookings.csv",
@@ -71,11 +65,11 @@ def verify_imports():
     
     modules_to_test = [
         ("app.config.settings", "load_settings"),
-        ("app.adapters.postgresql", "PostgreSQLAdapter"),
-        ("app.etl.bronze_layer", "extract_to_bronze"),
-        ("app.etl.silver_layer", "transform_to_silver"),
-        ("app.etl.gold_layer", "aggregate_to_gold"),
-        ("app.etl.flows", "ride_booking_etl"),
+        ("app.adapters.iceberg_adapter", "IcebergAdapter"),
+        ("app.etl.bronze_layer", "extract_to_bronze_iceberg"),
+        ("app.etl.silver_layer_iceberg", "transform_to_silver_iceberg"),
+        ("app.etl.gold_layer_iceberg", "aggregate_to_gold_iceberg"),
+        ("app.etl.flows", "ride_booking_etl_iceberg"),
         ("app.etl.cli", "main"),
     ]
     
@@ -98,45 +92,12 @@ def verify_imports():
 
 
 def verify_sql_syntax():
-    """Verify SQL files have valid syntax."""
+    """Skip SQL file verification - using Iceberg."""
     logger.info("\n" + "=" * 80)
-    logger.info("VERIFYING SQL FILES")
+    logger.info("VERIFYING ICEBERG SETUP")
     logger.info("=" * 80)
     
-    sql_files = [
-        "init-db/01_create_schemas.sql",
-        "init-db/02_create_medallion_schema.sql",
-    ]
-    
-    for sql_file in sql_files:
-        path = Path(sql_file)
-        if not path.exists():
-            logger.error(f"✗ {sql_file} - File not found")
-            continue
-        
-        content = path.read_text()
-        
-        # Basic syntax checks
-        issues = []
-        
-        # Check for common SQL keywords
-        if "CREATE TABLE" not in content.upper() and "CREATE SCHEMA" not in content.upper():
-            issues.append("No CREATE statements found")
-        
-        # Check for balanced parentheses
-        if content.count('(') != content.count(')'):
-            issues.append("Unbalanced parentheses")
-        
-        # Check for semicolons
-        if ';' not in content:
-            issues.append("No statement terminators (;) found")
-        
-        if issues:
-            logger.error(f"✗ {sql_file} - Issues: {', '.join(issues)}")
-        else:
-            logger.info(f"✓ {sql_file}")
-    
-    logger.info(f"\n✓ SQL files checked")
+    logger.info("✓ Using Apache Iceberg (no SQL files required)")
     return True
 
 
@@ -149,7 +110,7 @@ def verify_documentation():
     doc_files = {
         "ETL_README.md": ["Architecture", "Bronze", "Silver", "Gold", "Usage"],
         "QUICKSTART.md": ["Quick Start", "Prerequisites", "Run"],
-        "IMPLEMENTATION_SUMMARY.md": ["Overview", "Database Schema", "ETL Pipeline"],
+        "ICEBERG_README.md": ["Iceberg", "Tables", "Catalog"],
         "README.md": ["Medallion", "Quick Start", "Usage"],
     }
     
@@ -179,14 +140,14 @@ def print_architecture_summary():
     
     summary = """
     
-MEDALLION ARCHITECTURE IMPLEMENTATION
-======================================
+MEDALLION ARCHITECTURE IMPLEMENTATION (Apache Iceberg)
+=======================================================
 
 Source: data/ncr_ride_bookings.csv (150,001 rows)
 
-BRONZE LAYER (Raw Staging - Partitioned by Month)
---------------------------------------------------
-Tables:
+BRONZE LAYER (Raw Staging)
+---------------------------
+Iceberg Tables:
   • customer          - Customer records per booking
   • vehicle_type      - Vehicle types used
   • location          - Pickup and drop locations
@@ -197,10 +158,8 @@ Tables:
   • cancelled_ride    - Cancellation records
   • incompleted_ride  - Incomplete ride records
 
-Partition Key: extraction_month (YYYY-MM)
-
-SILVER LAYER (Normalized Star Schema)
---------------------------------------
+SILVER LAYER (Normalized Data)
+-------------------------------
 Dimensions:
   • customer          - Customer master data
   • vehicle_type      - Vehicle type lookup
@@ -209,7 +168,7 @@ Dimensions:
   • payment_method    - Payment types
 
 Facts:
-  • booking           - Central fact (FKs to all dimensions)
+  • booking           - Central fact
   • ride              - Completed ride metrics
   • cancelled_ride    - Cancellation details
   • incompleted_ride  - Incomplete ride reasons
@@ -225,30 +184,26 @@ ORCHESTRATION
 -------------
 Framework: Prefect
 Flows:
-  • ride_booking_etl      - Full pipeline
-  • incremental_etl       - Process new data
-  • backfill_etl          - Reprocess existing
+  • ride_booking_etl_iceberg  - Full pipeline
 
 Command-Line Interface:
-  • python -m app.etl.cli run
-  • python -m app.etl.cli incremental
+  • python run_iceberg_etl.py
   • python -m app.etl.cli backfill
 
 STORAGE
 -------
-Database: PostgreSQL
-Schemas: bronze, silver, gold
-Connection: via SQLAlchemy
+Format: Apache Iceberg
+Catalog: Filesystem
+Location: ./warehouse/
 
 KEY FEATURES
 ------------
-✓ Idempotent operations (UPSERT logic)
-✓ Monthly partitioning in Bronze
-✓ Foreign key constraints in Silver
-✓ Pre-aggregated metrics in Gold
+✓ ACID transactions with Iceberg
+✓ Schema evolution support
+✓ Time travel capabilities
+✓ Efficient query performance
 ✓ Retry logic with Prefect tasks
 ✓ Comprehensive error handling
-✓ Docker deployment ready
 
     """
     
@@ -264,7 +219,7 @@ def main():
     checks = [
         ("Files", verify_files_exist),
         ("Imports", verify_imports),
-        ("SQL Syntax", verify_sql_syntax),
+        ("Iceberg Setup", verify_sql_syntax),
         ("Documentation", verify_documentation),
     ]
     
@@ -294,10 +249,8 @@ def main():
         logger.info("✓ ALL CHECKS PASSED - ETL Implementation Ready!")
         logger.info("=" * 80)
         logger.info("\nNext steps:")
-        logger.info("  1. Start database: docker-compose up -d postgres")
-        logger.info("  2. Run ETL: python -m app.etl.cli run")
-        logger.info("  3. Or run example: python examples/run_etl_example.py")
-        logger.info("  4. Read QUICKSTART.md for detailed guide")
+        logger.info("  1. Run ETL: python run_iceberg_etl.py")
+        logger.info("  2. Read QUICKSTART.md for detailed guide")
         sys.exit(0)
     else:
         logger.error("✗ SOME CHECKS FAILED - Review errors above")

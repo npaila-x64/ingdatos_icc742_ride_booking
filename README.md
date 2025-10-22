@@ -1,6 +1,6 @@
-# Ride Booking ETL with Prefect - Medallion Architecture
+# Ride Booking ETL with Prefect - Medallion Architecture (Apache Iceberg)
 
-A production-ready ETL pipeline implementing the **Medallion Architecture** (Bronze → Silver → Gold) for ride booking analytics. This project processes ride booking data from CSV files into a multi-layered analytical data warehouse using **Prefect** orchestration and **PostgreSQL** storage.
+A production-ready ETL pipeline implementing the **Medallion Architecture** (Bronze → Silver → Gold) for ride booking analytics. This project processes ride booking data from CSV files into a multi-layered analytical data lakehouse using **Prefect** orchestration and **Apache Iceberg** storage.
 
 ## 🎯 Overview
 
@@ -13,92 +13,76 @@ This repository contains a complete ETL pipeline that:
 ### Key Features
 
 ✅ **Medallion Architecture** - Industry-standard data lake pattern (Bronze → Silver → Gold)  
+✅ **Apache Iceberg** - Modern table format with ACID transactions and time travel  
 ✅ **Prefect Orchestration** - Robust workflow management with retries and monitoring  
-✅ **PostgreSQL Storage** - ACID-compliant relational database with schema separation  
-✅ **Incremental Processing** - Efficient monthly data partitioning  
+✅ **Schema Evolution** - Seamless schema changes without rewriting data  
+✅ **Time Travel** - Query historical data snapshots  
 ✅ **Idempotent Operations** - Safe to re-run with upsert logic  
-✅ **Docker Support** - Containerized deployment with Docker Compose  
 ✅ **Type Safety** - Pydantic models and type hints throughout  
 
 ## 📚 Documentation
 
 - **[ETL_README.md](ETL_README.md)** - Complete ETL architecture and usage guide
-- **[DOCKER.md](DOCKER.md)** - Docker deployment instructions
-- **[examples/](examples/)** - Example scripts and usage patterns
+- **[ICEBERG_README.md](ICEBERG_README.md)** - Apache Iceberg implementation details
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
 
 ## 🏗️ Architecture
 
 ```
 CSV Source → Bronze (Raw) → Silver (Normalized) → Gold (Analytics)
               ↓                ↓                    ↓
-          Partitioned      Star Schema         Aggregated
-          by Month        Fact/Dimension        Metrics
+          Iceberg           Iceberg              Iceberg
+          Tables            Tables               Tables
 ```
 
 **Layers:**
-- **Bronze**: Raw data extraction with monthly partitioning
+- **Bronze**: Raw data extraction stored as Iceberg tables
 - **Silver**: Normalized dimensional model (customers, bookings, rides, locations, etc.)
 - **Gold**: Pre-aggregated analytics (daily summaries, customer metrics, location stats)
+
+**Storage**: All data stored in Apache Iceberg format in the `warehouse/` directory
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
-- Docker & Docker Compose (recommended)
-- PostgreSQL 12+ (if running locally)
 
-### Using Docker (Recommended)
+### Installation
 
 ```bash
 # 1. Clone and navigate to repository
 cd ingdatos_icc742_ride_booking
 
-# 2. Copy environment configuration
-cp .env.example .env
-
-# 3. Start PostgreSQL database
-make up
-# or: docker-compose up -d postgres
-
-# 4. Run the ETL pipeline
-make etl-run
-# or: python -m app.etl.cli run
-
-# 5. (Optional) Run example with diagnostics
-make etl-example
-# or: python examples/run_etl_example.py
-```
-
-**View Results:**
-```bash
-# Query database
-make db-shell
-# Then run: SELECT * FROM gold.daily_booking_summary LIMIT 10;
-
-# Or use pgAdmin
-make up-dev  # Start pgAdmin at http://localhost:5050
-```
-
-### Local Installation
-
-```bash
-# 1. Create virtual environment
+# 2. Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install dependencies
+# 3. Install dependencies
 pip install -e .[dev]
 
-# 3. Configure environment
+# 4. Copy environment configuration (optional)
 cp .env.example .env
-# Edit .env with your PostgreSQL credentials
 
-# 4. Run bootstrap (creates Prefect profile)
-ride-booking-bootstrap
+# 5. Run the ETL pipeline
+python run_iceberg_etl.py
 
-# 5. Run ETL pipeline
-python -m app.etl.cli run
+# Or use make
+make etl-run
+```
+
+**View Results:**
+```python
+# Query Iceberg tables
+from app.adapters.iceberg_adapter import IcebergAdapter
+from app.config.settings import load_settings
+
+settings = load_settings()
+adapter = IcebergAdapter(settings.iceberg)
+
+# Read Gold layer
+df = adapter.read_table("gold", "daily_booking_summary")
+print(df.head())
 ```
 
 ## 📖 Usage
@@ -107,34 +91,22 @@ python -m app.etl.cli run
 
 ```bash
 # Run full ETL pipeline (Bronze → Silver → Gold)
-python -m app.etl.cli run
-
-# Process specific file
-python -m app.etl.cli run --source-file data/my_bookings.csv
-
-# Incremental load (for new monthly data)
-python -m app.etl.cli incremental --source-file data/2024-10-bookings.csv
+python run_iceberg_etl.py
 
 # Backfill (reprocess Silver and Gold from existing Bronze)
 python -m app.etl.cli backfill
-
-# Skip specific layers
-python -m app.etl.cli run --skip-gold
 ```
 
 ### Python API
 
 ```python
-from app.etl.flows import ride_booking_etl
+from app.etl.flows import ride_booking_etl_iceberg
 from datetime import datetime
 
 # Run full pipeline
-results = ride_booking_etl(
+results = ride_booking_etl_iceberg(
     source_file="data/ncr_ride_bookings.csv",
     extraction_date=datetime(2024, 10, 21),
-    run_bronze=True,
-    run_silver=True,
-    run_gold=True,
 )
 
 print(results)
@@ -145,9 +117,11 @@ print(results)
 
 ```bash
 make help            # Show all available commands
+make install         # Install dependencies
 make etl-run         # Run full ETL pipeline
-make etl-example     # Run example with diagnostics
 make etl-backfill    # Reprocess Silver and Gold layers
+make clean           # Clean up logs
+```
 make db-query-bronze # Query Bronze layer stats
 make db-query-silver # Query Silver layer stats
 make db-query-gold   # Query Gold layer stats
@@ -166,7 +140,7 @@ make db-query-gold   # Query Gold layer stats
 - `cancelled_ride` - Cancellation records
 - `incompleted_ride` - Incomplete ride records
 
-All Bronze tables partitioned by `extraction_month` (YYYY-MM format).
+All stored as Apache Iceberg tables in `warehouse/bronze/`.
 
 ### Silver Layer (Normalized Model)
 
@@ -178,100 +152,96 @@ All Bronze tables partitioned by `extraction_month` (YYYY-MM format).
 - `payment_method` - Payment types
 
 **Facts:**
-- `booking` - Central fact table with FKs to all dimensions
+- `booking` - Central fact table
 - `ride` - Completed ride metrics (distance, ratings, TAT)
 - `cancelled_ride` - Cancellation details
 - `incompleted_ride` - Incomplete ride reasons
+
+All stored as Apache Iceberg tables in `warehouse/silver/`.
 
 ### Gold Layer (Analytics)
 - `daily_booking_summary` - Daily aggregated metrics
 - `customer_analytics` - Customer-level KPIs
 - `location_analytics` - Location-level statistics
 
-## PostgreSQL Adapter
+All stored as Apache Iceberg tables in `warehouse/gold/`.
 
-The project includes a comprehensive PostgreSQL adapter for database operations:
+## Apache Iceberg Adapter
+
+The project includes a comprehensive Iceberg adapter for data operations:
 
 ### Basic Usage
 ```python
-from app.adapters.postgresql import PostgreSQLAdapter
+from app.adapters.iceberg_adapter import IcebergAdapter
 from app.config.settings import load_settings
 
 # Load configuration
 settings = load_settings()
 
 # Initialize adapter
-adapter = PostgreSQLAdapter(settings.database)
+adapter = IcebergAdapter(settings.iceberg)
 
 # Read data
-df = adapter.read_table("booking", schema="silver")
+df = adapter.read_table("silver", "booking")
 
-# Write data
-adapter.write_table(df, "processed_bookings", if_exists="append")
-```
-
-### Context Manager Pattern
-```python
-with PostgreSQLAdapter(settings.database) as adapter:
-    df = adapter.read_table("rides")
-    # Process data...
-    adapter.write_table(df, "processed_rides")
+# Write data (append or overwrite)
+adapter.write_table(df, "silver", "booking", mode="append")
 ```
 
 ### Available Methods
-- `execute_query()`: Run SELECT queries and get results as dictionaries
-- `execute_statement()`: Run INSERT/UPDATE/DELETE statements
-- `read_table()`: Load database tables into pandas DataFrames
-- `write_table()`: Write pandas DataFrames to database tables
+- `read_table()`: Load Iceberg tables into pandas DataFrames
+- `write_table()`: Write pandas DataFrames to Iceberg tables
 - `table_exists()`: Check if a table exists
-- `create_schema()`: Create database schemas
+- `create_table()`: Create new Iceberg tables with schema
+- `get_catalog()`: Access PyIceberg catalog for advanced operations
 
-See `app/adapters/example_usage.py` for comprehensive examples.
+See `app/adapters/iceberg_adapter.py` for comprehensive examples.
 
 ## Configuration
 The project uses environment variables for configuration. Key settings:
 
-### Database Settings
-- `DB_HOST`: PostgreSQL host (default: localhost)
-- `DB_PORT`: PostgreSQL port (default: 5432)
-- `DB_NAME`: Database name (default: ride_booking)
-- `DB_USER`: Database user (default: postgres)
-- `DB_PASSWORD`: Database password
-- `DB_SCHEMA`: Default schema (default: public)
+### Iceberg Settings
+- `ICEBERG_WAREHOUSE`: Warehouse directory path (default: warehouse)
+- `PROJECT_BASE_PATH`: Base project path (default: .)
+- `PROJECT_DATA_DIR`: Data directory (default: data)
 
 ## Prefect Setup Notes
 - The default Prefect profile is `ride-booking-local`; adjust `PREFECT_PROFILE` in
 	your `.env` file if you need a different workspace.
-- The bootstrap helper creates `data/raw`, `data/processed`, and `data/logs` to
-	isolate extracted assets from derived datasets.
 - Update `PREFECT_API_URL`, `PREFECT_STORAGE_BLOCK`, and `PREFECT_WORK_POOL` in `.env`
 	once infrastructure decisions are finalized.
 
 ## Next Steps
 - Define Prefect blocks for storage, messaging, and credentials.
-- Model ETL flows inside `app/etl` using the project settings helpers.
+- Explore Iceberg time travel and schema evolution features.
 - Add automated tests around reusable components as flows are introduced.
 
 ## Project Structure
 ```
 .
 ├── app/
-│   ├── adapters/          # Database and external service adapters
-│   │   ├── postgresql.py  # PostgreSQL adapter
-│   │   └── example_usage.py
+│   ├── adapters/          # Data adapters
+│   │   ├── iceberg_adapter.py  # Iceberg adapter
+│   │   └── iceberg_schemas.py  # Table schemas
 │   ├── config/            # Configuration management
 │   │   └── settings.py
 │   └── etl/               # ETL workflows and utilities
-│       └── bootstrap.py
-├── data/                  # Data files (bronze, silver, gold)
-├── init-db/              # Database initialization scripts
-├── Dockerfile            # Docker container definition
-├── docker-compose.yml    # Multi-container orchestration
+│       ├── bronze_layer.py
+│       ├── silver_layer_iceberg.py
+│       ├── gold_layer_iceberg.py
+│       └── flows.py
+├── data/                  # Data files
+├── warehouse/             # Iceberg warehouse
+│   ├── bronze/
+│   ├── silver/
+│   └── gold/
+├── run_iceberg_etl.py    # Main ETL runner
 ├── Makefile              # Convenience commands
-├── DOCKER.md             # Docker setup guide
+├── ICEBERG_README.md     # Iceberg setup guide
 └── README.md             # This file
 ```
 
 ## Documentation
-- [Docker Setup Guide](DOCKER.md) - Comprehensive Docker deployment instructions
-- [Example Usage](app/adapters/example_usage.py) - PostgreSQL adapter examples
+- [Iceberg Guide](ICEBERG_README.md) - Apache Iceberg implementation details
+- [Quick Start](QUICKSTART.md) - Quick start guide
+- [ETL Documentation](ETL_README.md) - Complete ETL guide
