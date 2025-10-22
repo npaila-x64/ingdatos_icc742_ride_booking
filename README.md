@@ -12,16 +12,14 @@ This repository contains a complete ETL pipeline that:
 
 ### Key Features
 
-✅ **Medallion Architecture** - Industry-standard data lake pattern (Bronze → Silver → Gold)  
-✅ **Apache Iceberg** - Modern table format with ACID transactions and time travel  
-✅ **Prefect Orchestration** - Robust workflow management with retries and monitoring  
-✅ **Schema Evolution** - Seamless schema changes without rewriting data  
-✅ **Time Travel** - Query historical data snapshots  
-✅ **Idempotent Operations** - Safe to re-run with upsert logic  
-✅ **Type Safety** - Pydantic models and type hints throughout  
+- **Medallion Architecture** Industry-standard data lake pattern (Bronze → Silver → Gold)  
+- **Apache Iceberg** Modern table format with ACID transactions and time travel  
+- **Prefect Orchestration** Robust workflow management with retries and monitoring  
+- **Schema Evolution** Seamless schema changes without rewriting data  
+- **Time Travel** Query historical data snapshots  
+- **Idempotent Operations** Safe to re-run with upsert logic  
+- **Type Safety** Pydantic models and type hints throughout  
 
 ## 📚 Documentation
 
-- **[ETL_README.md](ETL_README.md)** - Complete ETL architecture and usage guide
-- **[ICEBERG_README.md](ICEBERG_README.md)** - Apache Iceberg implementation details
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
