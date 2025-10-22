@@ -47,7 +47,7 @@ def load_and_prepare_source_data(
     
     # Add extraction metadata
     df['extraction_date'] = extraction_date.date()
-    df['extraction_month'] = df['Date'].dt.strftime('%Y-%m')
+    df['extraction_month'] = extraction_date.strftime('%Y-%m')
     df['source_file'] = source_file.name
     
     logger.info(f"Prepared source data with extraction metadata")
