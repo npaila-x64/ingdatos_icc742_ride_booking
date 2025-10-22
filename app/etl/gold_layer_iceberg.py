@@ -10,13 +10,26 @@ import pandas as pd
 from prefect import task
 
 from app.adapters.iceberg_adapter import IcebergAdapter
-from app.adapters.iceberg_schemas import (
-    GOLD_CUSTOMER_ANALYTICS_SCHEMA,
-    GOLD_DAILY_BOOKING_SUMMARY_SCHEMA,
-    GOLD_LOCATION_ANALYTICS_SCHEMA,
-)
+from app.adapters import iceberg_schemas
 
 logger = logging.getLogger(__name__)
+
+
+def _initialize_gold_tables(iceberg_adapter: IcebergAdapter) -> None:
+    """Initialize all Gold layer tables if they don't exist."""
+    tables = {
+        'daily_booking_summary': iceberg_schemas.GOLD_DAILY_BOOKING_SUMMARY_SCHEMA,
+        'customer_analytics': iceberg_schemas.GOLD_CUSTOMER_ANALYTICS_SCHEMA,
+        'location_analytics': iceberg_schemas.GOLD_LOCATION_ANALYTICS_SCHEMA,
+    }
+    
+    for table_name, schema in tables.items():
+        table = iceberg_adapter.get_table('gold', table_name)
+        if table is None:
+            logger.info(f"Creating table gold.{table_name}")
+            iceberg_adapter.create_table('gold', table_name, schema)
+        else:
+            logger.info(f"Table gold.{table_name} already exists")
 
 
 @task(name="aggregate-to-gold", retries=2, retry_delay_seconds=30)
@@ -24,16 +37,11 @@ def aggregate_to_gold(
     iceberg_adapter: IcebergAdapter,
     target_date: Optional[datetime] = None,
 ) -> dict[str, int]:
-    """Aggregate Silver layer data into Gold layer analytics tables.
-    
-    Args:
-        iceberg_adapter: Iceberg adapter
-        target_date: Specific date to process. If None, processes all data.
-        
-    Returns:
-        Dictionary with row counts for each Gold table
-    """
+    """Aggregate Silver layer data into Gold layer analytics tables."""
     logger.info(f"Starting Gold aggregation for date: {target_date or 'all'}")
+    
+    # Initialize Gold tables if they don't exist
+    _initialize_gold_tables(iceberg_adapter)
     
     row_counts = {}
     
@@ -48,199 +56,156 @@ def aggregate_to_gold(
 
 def _aggregate_daily_summary(
     iceberg_adapter: IcebergAdapter,
-    target_date: Optional[datetime]
+    target_date: Optional[datetime] = None,
 ) -> int:
-    """Aggregate daily booking summary statistics."""
+    """Create daily booking summary from Silver layer."""
+    logger.info("Aggregating daily booking summary")
     
-    # Load Silver tables
+    # Read silver booking data
     bookings = iceberg_adapter.read_table('silver', 'booking')
-    rides = iceberg_adapter.read_table('silver', 'ride')
-    cancelled_rides = iceberg_adapter.read_table('silver', 'cancelled_ride')
-    incompleted_rides = iceberg_adapter.read_table('silver', 'incompleted_ride')
-    
-    if len(bookings) == 0:
-        logger.info("No data to aggregate for daily summary")
+    if bookings is None or len(bookings) == 0:
+        logger.warning("No bookings in Silver layer")
         return 0
     
-    # Filter by date if specified
-    if target_date:
-        bookings = bookings[bookings['date'] == target_date.date()]
+    # Read dimension tables for names
+    vehicle_types = iceberg_adapter.read_table('silver', 'vehicle_type')
+    booking_statuses = iceberg_adapter.read_table('silver', 'booking_status')
     
-    # Join with fact tables
-    bookings = bookings.merge(rides[['booking_id', 'ride_distance', 'driver_rating', 'customer_rating']], 
-                              on='booking_id', how='left')
-    bookings = bookings.merge(cancelled_rides[['booking_id', 'cancellation_id']], 
-                              on='booking_id', how='left')
-    bookings = bookings.merge(incompleted_rides[['booking_id', 'incompleted_id']], 
-                              on='booking_id', how='left')
+    if vehicle_types is None or booking_statuses is None:
+        logger.warning("Missing dimension tables")
+        return 0
     
-    # Aggregate by date
-    summary_df = bookings.groupby('date').agg({
-        'booking_id': 'nunique',
-        'ride_distance': 'mean',
-        'driver_rating': 'mean',
-        'customer_rating': 'mean',
-        'booking_value': 'sum',
-    }).reset_index()
+    # Merge dimension names
+    bookings = bookings.merge(
+        vehicle_types[['vehicle_type_id', 'name']], 
+        on='vehicle_type_id', 
+        how='left'
+    ).rename(columns={'name': 'vehicle_type_name'})
     
-    # Count completed, cancelled, and incompleted rides
-    completed_counts = bookings[bookings['ride_distance'].notna()].groupby('date').size()
-    cancelled_counts = bookings[bookings['cancellation_id'].notna()].groupby('date').size()
-    incompleted_counts = bookings[bookings['incompleted_id'].notna()].groupby('date').size()
+    bookings = bookings.merge(
+        booking_statuses[['booking_status_id', 'name']], 
+        on='booking_status_id', 
+        how='left'
+    ).rename(columns={'name': 'booking_status_name'})
     
-    summary_df = summary_df.merge(completed_counts.to_frame('completed_rides'), 
-                                  left_on='date', right_index=True, how='left')
-    summary_df = summary_df.merge(cancelled_counts.to_frame('cancelled_rides'), 
-                                  left_on='date', right_index=True, how='left')
-    summary_df = summary_df.merge(incompleted_counts.to_frame('incompleted_rides'), 
-                                  left_on='date', right_index=True, how='left')
+    # Aggregate by date, vehicle type, and status
+    daily_summary = bookings.groupby([
+        'date', 'vehicle_type_name', 'booking_status_name'
+    ]).agg(
+        total_bookings=('booking_id', 'count'),
+        total_revenue=('booking_value', 'sum'),
+        avg_booking_value=('booking_value', 'mean')
+    ).reset_index()
     
-    # Fill NaN values
-    summary_df = summary_df.fillna(0)
+    # Add timestamp
+    now = datetime.utcnow()
+    daily_summary['created_at'] = now
+    daily_summary['updated_at'] = now
     
-    # Rename columns
-    summary_df.columns = [
-        'summary_date', 'total_bookings', 'avg_ride_distance', 'avg_driver_rating',
-        'avg_customer_rating', 'total_revenue', 'completed_rides', 'cancelled_rides',
-        'incompleted_rides'
-    ]
+    # Write to Gold
+    rows_written = iceberg_adapter.write_dataframe(
+        daily_summary, 'gold', 'daily_booking_summary', mode='overwrite'
+    )
     
-    # Convert counts to int
-    for col in ['total_bookings', 'completed_rides', 'cancelled_rides', 'incompleted_rides']:
-        summary_df[col] = summary_df[col].astype(int)
-    
-    summary_df['created_at'] = datetime.now()
-    summary_df['updated_at'] = datetime.now()
-    
-    # Reorder columns to match schema
-    summary_df = summary_df[[
-        'summary_date', 'total_bookings', 'completed_rides', 'cancelled_rides',
-        'incompleted_rides', 'total_revenue', 'avg_ride_distance',
-        'avg_driver_rating', 'avg_customer_rating', 'created_at', 'updated_at'
-    ]]
-    
-    if not iceberg_adapter.table_exists('gold', 'daily_booking_summary'):
-        iceberg_adapter.create_table('gold', 'daily_booking_summary', GOLD_DAILY_BOOKING_SUMMARY_SCHEMA)
-    
-    rows_written = iceberg_adapter.write_dataframe(summary_df, 'gold', 'daily_booking_summary', mode='overwrite')
-    logger.info(f"Aggregated {rows_written} daily summaries to Gold")
+    logger.info(f"Aggregated {rows_written} daily summaries")
     return rows_written
 
 
-def _aggregate_customer_analytics(iceberg_adapter: IcebergAdapter) -> int:
-    """Aggregate customer-level analytics."""
+def _aggregate_customer_analytics(
+    iceberg_adapter: IcebergAdapter,
+) -> int:
+    """Create customer analytics from Silver layer."""
+    logger.info("Aggregating customer analytics")
     
-    # Load Silver tables
+    # Read silver data
     customers = iceberg_adapter.read_table('silver', 'customer')
     bookings = iceberg_adapter.read_table('silver', 'booking')
-    rides = iceberg_adapter.read_table('silver', 'ride')
-    cancelled_rides = iceberg_adapter.read_table('silver', 'cancelled_ride')
-    vehicle_types = iceberg_adapter.read_table('silver', 'vehicle_type')
     
-    if len(customers) == 0:
-        logger.info("No data to aggregate for customer analytics")
+    if customers is None or bookings is None:
+        logger.warning("Missing data in Silver layer")
         return 0
     
-    # Join bookings with rides and cancelled rides
-    bookings_with_facts = bookings.merge(rides[['booking_id', 'customer_rating']], 
-                                         on='booking_id', how='left')
-    bookings_with_facts = bookings_with_facts.merge(cancelled_rides[['booking_id', 'cancellation_id']], 
-                                                     on='booking_id', how='left')
-    bookings_with_facts = bookings_with_facts.merge(vehicle_types[['vehicle_type_id', 'name']], 
-                                                     on='vehicle_type_id', how='left')
+    # Calculate customer metrics
+    customer_stats = bookings.groupby('customer_id').agg(
+        total_bookings=('booking_id', 'count'),
+        total_spent=('booking_value', 'sum'),
+        avg_booking_value=('booking_value', 'mean'),
+        first_booking_date=('date', 'min'),
+        last_booking_date=('date', 'max')
+    ).reset_index()
     
-    # Aggregate by customer
-    customer_analytics = bookings_with_facts.groupby('customer_id').agg({
-        'booking_id': 'nunique',
-        'booking_value': 'sum',
-        'customer_rating': 'mean',
-        'date': ['min', 'max'],
-        'name': lambda x: x.mode()[0] if len(x.mode()) > 0 else None
-    }).reset_index()
+    # Merge with customer data (drop total_bookings from customers to avoid conflict)
+    customers_clean = customers.drop(columns=['total_bookings'], errors='ignore')
+    customer_analytics = customers_clean.merge(customer_stats, on='customer_id', how='left')
     
-    # Flatten multi-level columns
-    customer_analytics.columns = ['customer_id', 'total_bookings', 'total_spent', 
-                                   'avg_rating', 'first_booking_date', 'last_booking_date',
-                                   'favorite_vehicle_type']
+    # Calculate customer lifetime days (convert dates to datetime first)
+    customer_analytics['customer_lifetime_days'] = (
+        pd.to_datetime(customer_analytics['last_booking_date']) - 
+        pd.to_datetime(customer_analytics['first_booking_date'])
+    ).dt.days
     
-    # Count completed and cancelled rides
-    completed_counts = bookings_with_facts[bookings_with_facts['customer_rating'].notna()].groupby('customer_id').size()
-    cancelled_counts = bookings_with_facts[bookings_with_facts['cancellation_id'].notna()].groupby('customer_id').size()
+    # Add timestamp
+    now = datetime.utcnow()
+    customer_analytics['created_at'] = now
+    customer_analytics['updated_at'] = now
     
-    customer_analytics = customer_analytics.merge(completed_counts.to_frame('completed_rides'), 
-                                                   left_on='customer_id', right_index=True, how='left')
-    customer_analytics = customer_analytics.merge(cancelled_counts.to_frame('cancelled_rides'), 
-                                                   left_on='customer_id', right_index=True, how='left')
+    # Write to Gold
+    rows_written = iceberg_adapter.write_dataframe(
+        customer_analytics, 'gold', 'customer_analytics', mode='overwrite'
+    )
     
-    customer_analytics = customer_analytics.fillna(0)
-    
-    # Convert to int where appropriate
-    for col in ['total_bookings', 'completed_rides', 'cancelled_rides']:
-        customer_analytics[col] = customer_analytics[col].astype(int)
-    
-    customer_analytics['created_at'] = datetime.now()
-    customer_analytics['updated_at'] = datetime.now()
-    
-    # Reorder columns
-    customer_analytics = customer_analytics[[
-        'customer_id', 'total_bookings', 'completed_rides', 'cancelled_rides',
-        'total_spent', 'avg_rating', 'favorite_vehicle_type',
-        'first_booking_date', 'last_booking_date', 'created_at', 'updated_at'
-    ]]
-    
-    if not iceberg_adapter.table_exists('gold', 'customer_analytics'):
-        iceberg_adapter.create_table('gold', 'customer_analytics', GOLD_CUSTOMER_ANALYTICS_SCHEMA)
-    
-    rows_written = iceberg_adapter.write_dataframe(customer_analytics, 'gold', 'customer_analytics', mode='overwrite')
-    logger.info(f"Aggregated {rows_written} customer analytics to Gold")
+    logger.info(f"Aggregated {rows_written} customer analytics")
     return rows_written
 
 
-def _aggregate_location_analytics(iceberg_adapter: IcebergAdapter) -> int:
-    """Aggregate location-level analytics."""
+def _aggregate_location_analytics(
+    iceberg_adapter: IcebergAdapter,
+) -> int:
+    """Create location analytics from Silver layer."""
+    logger.info("Aggregating location analytics")
     
-    # Load Silver tables
-    locations = iceberg_adapter.read_table('silver', 'location')
+    # Read silver data
     bookings = iceberg_adapter.read_table('silver', 'booking')
+    locations = iceberg_adapter.read_table('silver', 'location')
     
-    if len(locations) == 0:
-        logger.info("No data to aggregate for location analytics")
+    if bookings is None or locations is None:
+        logger.warning("Missing data in Silver layer")
         return 0
     
-    # Count pickups
-    pickup_counts = bookings.groupby('pickup_location_id').agg({
-        'booking_id': 'nunique',
-        'booking_value': 'mean'
-    }).reset_index()
-    pickup_counts.columns = ['location_id', 'total_pickups', 'avg_booking_value']
+    # Calculate pickup location metrics
+    pickup_stats = bookings.groupby('pickup_location_id').agg(
+        pickups=('booking_id', 'count'),
+        avg_booking_value=('booking_value', 'mean')
+    ).reset_index()
+    pickup_stats.rename(columns={'pickup_location_id': 'location_id'}, inplace=True)
     
-    # Count drops
-    drop_counts = bookings.groupby('drop_location_id').size().reset_index(name='total_drops')
-    drop_counts.columns = ['location_id', 'total_drops']
+    # Calculate dropoff location metrics
+    dropoff_stats = bookings.groupby('drop_location_id').agg(
+        dropoffs=('booking_id', 'count')
+    ).reset_index()
+    dropoff_stats.rename(columns={'drop_location_id': 'location_id'}, inplace=True)
     
-    # Merge with locations
-    location_analytics = locations.merge(pickup_counts, on='location_id', how='left')
-    location_analytics = location_analytics.merge(drop_counts, on='location_id', how='left')
+    # Merge location analytics
+    location_analytics = locations.merge(pickup_stats, on='location_id', how='left')
+    location_analytics = location_analytics.merge(dropoff_stats, on='location_id', how='left')
     
-    location_analytics = location_analytics.fillna(0)
+    # Fill NaN values with 0
+    location_analytics['pickups'] = location_analytics['pickups'].fillna(0).astype(int)
+    location_analytics['dropoffs'] = location_analytics['dropoffs'].fillna(0).astype(int)
+    location_analytics['avg_booking_value'] = location_analytics['avg_booking_value'].fillna(0)
     
-    # Convert to int where appropriate
-    for col in ['total_pickups', 'total_drops']:
-        location_analytics[col] = location_analytics[col].astype(int)
+    # Calculate total activity
+    location_analytics['total_activity'] = location_analytics['pickups'] + location_analytics['dropoffs']
     
-    # Rename and select columns
-    location_analytics = location_analytics.rename(columns={'name': 'location_name'})
-    location_analytics['created_at'] = datetime.now()
-    location_analytics['updated_at'] = datetime.now()
+    # Add timestamp
+    now = datetime.utcnow()
+    location_analytics['created_at'] = now
+    location_analytics['updated_at'] = now
     
-    location_analytics = location_analytics[[
-        'location_id', 'location_name', 'total_pickups', 'total_drops',
-        'avg_booking_value', 'created_at', 'updated_at'
-    ]]
+    # Write to Gold
+    rows_written = iceberg_adapter.write_dataframe(
+        location_analytics, 'gold', 'location_analytics', mode='overwrite'
+    )
     
-    if not iceberg_adapter.table_exists('gold', 'location_analytics'):
-        iceberg_adapter.create_table('gold', 'location_analytics', GOLD_LOCATION_ANALYTICS_SCHEMA)
-    
-    rows_written = iceberg_adapter.write_dataframe(location_analytics, 'gold', 'location_analytics', mode='overwrite')
-    logger.info(f"Aggregated {rows_written} location analytics to Gold")
+    logger.info(f"Aggregated {rows_written} location analytics")
     return rows_written

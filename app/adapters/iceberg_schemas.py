@@ -101,122 +101,120 @@ BRONZE_INCOMPLETED_RIDE_SCHEMA = Schema(
 
 # Silver Layer Schemas
 SILVER_CUSTOMER_SCHEMA = Schema(
-    NestedField(1, "customer_id", StringType(), required=True),
+    NestedField(1, "customer_id", StringType(), required=False),
     NestedField(2, "first_seen_date", DateType(), required=False),
     NestedField(3, "last_seen_date", DateType(), required=False),
     NestedField(4, "total_bookings", LongType(), required=False),
-    NestedField(5, "created_at", TimestampType(), required=True),
-    NestedField(6, "updated_at", TimestampType(), required=True),
+    NestedField(5, "created_at", TimestampType(), required=False),
+    NestedField(6, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_VEHICLE_TYPE_SCHEMA = Schema(
-    NestedField(1, "vehicle_type_id", LongType(), required=True),
-    NestedField(2, "name", StringType(), required=True),
-    NestedField(3, "created_at", TimestampType(), required=True),
-    NestedField(4, "updated_at", TimestampType(), required=True),
+    NestedField(1, "vehicle_type_id", LongType(), required=False),
+    NestedField(2, "name", StringType(), required=False),
+    NestedField(3, "created_at", TimestampType(), required=False),
+    NestedField(4, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_LOCATION_SCHEMA = Schema(
-    NestedField(1, "location_id", LongType(), required=True),
-    NestedField(2, "name", StringType(), required=True),
-    NestedField(3, "created_at", TimestampType(), required=True),
-    NestedField(4, "updated_at", TimestampType(), required=True),
+    NestedField(1, "location_id", LongType(), required=False),
+    NestedField(2, "name", StringType(), required=False),
+    NestedField(3, "created_at", TimestampType(), required=False),
+    NestedField(4, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_BOOKING_STATUS_SCHEMA = Schema(
-    NestedField(1, "booking_status_id", LongType(), required=True),
-    NestedField(2, "name", StringType(), required=True),
-    NestedField(3, "created_at", TimestampType(), required=True),
-    NestedField(4, "updated_at", TimestampType(), required=True),
+    NestedField(1, "booking_status_id", LongType(), required=False),
+    NestedField(2, "name", StringType(), required=False),
+    NestedField(3, "created_at", TimestampType(), required=False),
+    NestedField(4, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_PAYMENT_METHOD_SCHEMA = Schema(
-    NestedField(1, "payment_method_id", LongType(), required=True),
-    NestedField(2, "name", StringType(), required=True),
-    NestedField(3, "created_at", TimestampType(), required=True),
-    NestedField(4, "updated_at", TimestampType(), required=True),
+    NestedField(1, "payment_method_id", LongType(), required=False),
+    NestedField(2, "name", StringType(), required=False),
+    NestedField(3, "created_at", TimestampType(), required=False),
+    NestedField(4, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_BOOKING_SCHEMA = Schema(
-    NestedField(1, "booking_id", StringType(), required=True),
-    NestedField(2, "customer_id", StringType(), required=True),
+    NestedField(1, "booking_id", StringType(), required=False),
+    NestedField(2, "customer_id", StringType(), required=False),
     NestedField(3, "vehicle_type_id", LongType(), required=False),
     NestedField(4, "pickup_location_id", LongType(), required=False),
     NestedField(5, "drop_location_id", LongType(), required=False),
     NestedField(6, "booking_status_id", LongType(), required=False),
     NestedField(7, "payment_method_id", LongType(), required=False),
     NestedField(8, "booking_value", DoubleType(), required=False),
-    NestedField(9, "date", DateType(), required=True),
+    NestedField(9, "date", DateType(), required=False),
     NestedField(10, "time", StringType(), required=False),
-    NestedField(11, "created_at", TimestampType(), required=True),
-    NestedField(12, "updated_at", TimestampType(), required=True),
+    NestedField(11, "created_at", TimestampType(), required=False),
+    NestedField(12, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_RIDE_SCHEMA = Schema(
-    NestedField(1, "ride_id", LongType(), required=True),
-    NestedField(2, "booking_id", StringType(), required=True),
+    NestedField(1, "ride_id", LongType(), required=False),
+    NestedField(2, "booking_id", StringType(), required=False),
     NestedField(3, "ride_distance", DoubleType(), required=False),
     NestedField(4, "driver_rating", DoubleType(), required=False),
     NestedField(5, "customer_rating", DoubleType(), required=False),
-    NestedField(6, "created_at", TimestampType(), required=True),
-    NestedField(7, "updated_at", TimestampType(), required=True),
+    NestedField(6, "created_at", TimestampType(), required=False),
+    NestedField(7, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_CANCELLED_RIDE_SCHEMA = Schema(
-    NestedField(1, "cancellation_id", LongType(), required=True),
-    NestedField(2, "booking_id", StringType(), required=True),
-    NestedField(3, "cancelled_rides_by_customer", IntegerType(), required=False),
-    NestedField(4, "cancelled_rides_by_driver", IntegerType(), required=False),
-    NestedField(5, "created_at", TimestampType(), required=True),
-    NestedField(6, "updated_at", TimestampType(), required=True),
+    NestedField(1, "cancellation_id", LongType(), required=False),
+    NestedField(2, "booking_id", StringType(), required=False),
+    NestedField(3, "cancelled_rides_by_customer", LongType(), required=False),
+    NestedField(4, "cancelled_rides_by_driver", LongType(), required=False),
+    NestedField(5, "created_at", TimestampType(), required=False),
+    NestedField(6, "updated_at", TimestampType(), required=False),
 )
 
 SILVER_INCOMPLETED_RIDE_SCHEMA = Schema(
-    NestedField(1, "incompleted_id", LongType(), required=True),
-    NestedField(2, "booking_id", StringType(), required=True),
-    NestedField(3, "incomplete_rides", IntegerType(), required=False),
+    NestedField(1, "incompleted_id", LongType(), required=False),
+    NestedField(2, "booking_id", StringType(), required=False),
+    NestedField(3, "incomplete_rides", LongType(), required=False),
     NestedField(4, "incomplete_rides_reason", StringType(), required=False),
-    NestedField(5, "created_at", TimestampType(), required=True),
-    NestedField(6, "updated_at", TimestampType(), required=True),
+    NestedField(5, "created_at", TimestampType(), required=False),
+    NestedField(6, "updated_at", TimestampType(), required=False),
 )
 
 # Gold Layer Schemas
 GOLD_DAILY_BOOKING_SUMMARY_SCHEMA = Schema(
-    NestedField(1, "summary_date", DateType(), required=True),
-    NestedField(2, "total_bookings", LongType(), required=False),
-    NestedField(3, "completed_rides", LongType(), required=False),
-    NestedField(4, "cancelled_rides", LongType(), required=False),
-    NestedField(5, "incompleted_rides", LongType(), required=False),
-    NestedField(6, "total_revenue", DoubleType(), required=False),
-    NestedField(7, "avg_ride_distance", DoubleType(), required=False),
-    NestedField(8, "avg_driver_rating", DoubleType(), required=False),
-    NestedField(9, "avg_customer_rating", DoubleType(), required=False),
-    NestedField(10, "created_at", TimestampType(), required=True),
-    NestedField(11, "updated_at", TimestampType(), required=True),
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "vehicle_type_name", StringType(), required=False),
+    NestedField(3, "booking_status_name", StringType(), required=False),
+    NestedField(4, "total_bookings", LongType(), required=False),
+    NestedField(5, "total_revenue", DoubleType(), required=False),
+    NestedField(6, "avg_booking_value", DoubleType(), required=False),
+    NestedField(7, "created_at", TimestampType(), required=False),
+    NestedField(8, "updated_at", TimestampType(), required=False),
 )
 
 GOLD_CUSTOMER_ANALYTICS_SCHEMA = Schema(
-    NestedField(1, "customer_id", StringType(), required=True),
-    NestedField(2, "total_bookings", LongType(), required=False),
-    NestedField(3, "completed_rides", LongType(), required=False),
-    NestedField(4, "cancelled_rides", LongType(), required=False),
+    NestedField(1, "customer_id", StringType(), required=False),
+    NestedField(2, "first_seen_date", DateType(), required=False),
+    NestedField(3, "last_seen_date", DateType(), required=False),
+    NestedField(4, "total_bookings", LongType(), required=False),
     NestedField(5, "total_spent", DoubleType(), required=False),
-    NestedField(6, "avg_rating", DoubleType(), required=False),
-    NestedField(7, "favorite_vehicle_type", StringType(), required=False),
-    NestedField(8, "first_booking_date", DateType(), required=False),
-    NestedField(9, "last_booking_date", DateType(), required=False),
-    NestedField(10, "created_at", TimestampType(), required=True),
-    NestedField(11, "updated_at", TimestampType(), required=True),
+    NestedField(6, "avg_booking_value", DoubleType(), required=False),
+    NestedField(7, "first_booking_date", DateType(), required=False),
+    NestedField(8, "last_booking_date", DateType(), required=False),
+    NestedField(9, "customer_lifetime_days", LongType(), required=False),
+    NestedField(10, "created_at", TimestampType(), required=False),
+    NestedField(11, "updated_at", TimestampType(), required=False),
 )
 
 GOLD_LOCATION_ANALYTICS_SCHEMA = Schema(
-    NestedField(1, "location_id", LongType(), required=True),
-    NestedField(2, "location_name", StringType(), required=True),
-    NestedField(3, "total_pickups", LongType(), required=False),
-    NestedField(4, "total_drops", LongType(), required=False),
+    NestedField(1, "location_id", LongType(), required=False),
+    NestedField(2, "name", StringType(), required=False),
+    NestedField(3, "pickups", LongType(), required=False),
+    NestedField(4, "dropoffs", LongType(), required=False),
     NestedField(5, "avg_booking_value", DoubleType(), required=False),
-    NestedField(6, "created_at", TimestampType(), required=True),
-    NestedField(7, "updated_at", TimestampType(), required=True),
+    NestedField(6, "total_activity", LongType(), required=False),
+    NestedField(7, "created_at", TimestampType(), required=False),
+    NestedField(8, "updated_at", TimestampType(), required=False),
 )
 
 
