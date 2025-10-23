@@ -17,12 +17,14 @@ logger = logging.getLogger(__name__)
 def load_and_prepare_source_data(
     source_file: Path,
     extraction_date: Optional[datetime] = None,
+    no_date_filter: bool = False,
 ) -> pd.DataFrame:
     """Load source CSV and add extraction metadata.
     
     Args:
         source_file: Path to the source CSV file
         extraction_date: Date of extraction (defaults to today)
+        no_date_filter: If True, skip date filtering and process all data
         
     Returns:
         DataFrame with cleaned data and metadata columns
@@ -45,17 +47,20 @@ def load_and_prepare_source_data(
     # Convert Date column to datetime
     df['Date'] = pd.to_datetime(df['Date'])
     
-    # Filter data by extraction date month
-    # Only include bookings from the same month/year as extraction_date
-    extraction_year_month = extraction_date.strftime('%Y-%m')
-    df['_temp_year_month'] = df['Date'].dt.strftime('%Y-%m')
-    
-    original_count = len(df)
-    df = df[df['_temp_year_month'] == extraction_year_month].copy()
-    df = df.drop(columns=['_temp_year_month'])
-    
-    filtered_count = len(df)
-    logger.info(f"Filtered data by date: {original_count} → {filtered_count} rows (keeping only {extraction_year_month})")
+    # Filter data by extraction date month (unless disabled)
+    if not no_date_filter:
+        # Only include bookings from the same month/year as extraction_date
+        extraction_year_month = extraction_date.strftime('%Y-%m')
+        df['_temp_year_month'] = df['Date'].dt.strftime('%Y-%m')
+        
+        original_count = len(df)
+        df = df[df['_temp_year_month'] == extraction_year_month].copy()
+        df = df.drop(columns=['_temp_year_month'])
+        
+        filtered_count = len(df)
+        logger.info(f"Filtered data by date: {original_count} → {filtered_count} rows (keeping only {extraction_year_month})")
+    else:
+        logger.info(f"Date filtering disabled - processing all {len(df)} rows")
     
     # Add extraction metadata
     df['extraction_date'] = extraction_date.date()

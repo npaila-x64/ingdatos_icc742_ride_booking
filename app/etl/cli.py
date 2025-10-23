@@ -91,6 +91,12 @@ Examples:
         help="Path to Iceberg warehouse directory (defaults to ./warehouse)",
     )
     
+    parser.add_argument(
+        "--no-date-filter",
+        action="store_true",
+        help="Disable date filtering in Bronze layer (process all data regardless of date)",
+    )
+    
     return parser.parse_args()
 
 
@@ -138,6 +144,7 @@ def main():
                 run_bronze=True,
                 run_silver=True,
                 run_gold=True,
+                no_date_filter=args.no_date_filter,
             )
         
         elif args.command == "bronze":
@@ -153,6 +160,7 @@ def main():
                 source_file=Path(source_file),
                 iceberg_adapter=iceberg_adapter,
                 extraction_date=extraction_date,
+                no_date_filter=args.no_date_filter,
             )
             results = {'bronze': bronze_results}
         

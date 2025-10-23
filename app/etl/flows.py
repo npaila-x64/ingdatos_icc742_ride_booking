@@ -68,6 +68,7 @@ def bronze_extraction_flow(
     source_file: Path,
     iceberg_adapter: IcebergAdapter,
     extraction_date: Optional[datetime] = None,
+    no_date_filter: bool = False,
 ) -> dict[str, int]:
     """Run granular Bronze layer extraction.
     
@@ -77,6 +78,7 @@ def bronze_extraction_flow(
         source_file: Path to source CSV file
         iceberg_adapter: Iceberg adapter instance
         extraction_date: Date of extraction
+        no_date_filter: If True, skip date filtering and process all data
         
     Returns:
         Dictionary with row counts for each Bronze table
@@ -86,7 +88,7 @@ def bronze_extraction_flow(
     logger.info("=" * 80)
     
     # Step 1: Load and prepare source data (single task)
-    prepared_df = load_and_prepare_source_data(source_file, extraction_date)
+    prepared_df = load_and_prepare_source_data(source_file, extraction_date, no_date_filter)
     
     # Step 2: Extract all entities in parallel
     # Group 1: Independent dimension extractions (can run in parallel)
@@ -223,6 +225,7 @@ def ride_booking_etl(
     run_bronze: bool = True,
     run_silver: bool = True,
     run_gold: bool = True,
+    no_date_filter: bool = False,
 ) -> dict[str, dict[str, int]]:
     """Main granular ETL flow orchestrating Bronze -> Silver -> Gold transformations.
     
@@ -238,6 +241,7 @@ def ride_booking_etl(
         run_bronze: Whether to run Bronze layer extraction
         run_silver: Whether to run Silver layer transformation
         run_gold: Whether to run Gold layer aggregation
+        no_date_filter: If True, skip date filtering and process all data
         
     Returns:
         Dictionary with execution statistics for each layer
@@ -273,6 +277,7 @@ def ride_booking_etl(
             source_file=source_path,
             iceberg_adapter=iceberg_adapter,
             extraction_date=extraction_date,
+            no_date_filter=no_date_filter,
         )
         results['bronze'] = bronze_results
     
