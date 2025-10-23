@@ -229,7 +229,9 @@ def main():
                 st.metric("Total Revenue", f"${total_revenue:,.2f}")
             
             with col3:
-                avg_booking = daily_summary['avg_booking_value'].mean()
+                # Calculate weighted average: total_revenue / total_bookings
+                # NOT the mean of daily averages (which would be unweighted)
+                avg_booking = total_revenue / total_bookings if total_bookings > 0 else 0
                 st.metric("Avg Booking Value", f"${avg_booking:.2f}")
             
             with col4:
