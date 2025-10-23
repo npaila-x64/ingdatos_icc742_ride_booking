@@ -39,17 +39,85 @@ def get_catalog():
     return catalog
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_table_data(layer: str, table_name: str) -> pd.DataFrame:
-    """Load data from Iceberg table"""
+def load_table_data(layer: str, table_name: str, extraction_month: str = "All") -> pd.DataFrame:
+    """Load data from Iceberg table with optional extraction_month filter
+    
+    Note: Cache is intentionally removed to ensure filter changes are reflected immediately.
+    For Silver/Gold layers without extraction_month, we filter via bronze booking_id.
+    """
     try:
         catalog = get_catalog()
         table = catalog.load_table(f"{layer}.{table_name}")
         df = table.scan().to_pandas()
+        
+        # Debug logging
+        total_rows_before = len(df)
+        
+        # Apply extraction_month filter if specified
+        if extraction_month != "All":
+            if 'extraction_month' in df.columns:
+                # Bronze layer: Direct filter
+                df = df[df['extraction_month'] == extraction_month]
+                st.sidebar.caption(f"✓ Filtered {layer}.{table_name}: {total_rows_before} → {len(df)} rows")
+            else:
+                # Silver/Gold layer: Filter using bronze.booking as source of truth
+                try:
+                    bronze_booking = catalog.load_table("bronze.booking")
+                    bronze_df = bronze_booking.scan().to_pandas()
+                    
+                    if 'extraction_month' in bronze_df.columns:
+                        bronze_filtered = bronze_df[bronze_df['extraction_month'] == extraction_month]
+                        
+                        # Apply filter based on table structure
+                        if 'booking_id' in df.columns:
+                            # Direct booking_id reference
+                            valid_booking_ids = set(bronze_filtered['booking_id'])
+                            df = df[df['booking_id'].isin(valid_booking_ids)]
+                            st.sidebar.caption(f"✓ Filtered {layer}.{table_name} via booking_id: {total_rows_before} → {len(df)} rows")
+                        elif 'customer_id' in df.columns and layer == "gold" and table_name == "customer_analytics":
+                            # Customer analytics: filter by customers who have bookings in this extraction
+                            valid_customer_ids = set(bronze_filtered['customer_id'])
+                            df = df[df['customer_id'].isin(valid_customer_ids)]
+                            st.sidebar.caption(f"✓ Filtered {layer}.{table_name} via customer_id: {total_rows_before} → {len(df)} rows")
+                        elif layer == "gold" and table_name == "location_analytics":
+                            # Location analytics: filter by locations used in this extraction
+                            # bronze.booking uses 'pickup_location' and 'drop_location' (names, not IDs)
+                            # But location_analytics might use location_id or name
+                            if 'location_id' in df.columns:
+                                # If using IDs, skip filter (can't map name to ID easily)
+                                st.sidebar.warning(f"⚠️ {layer}.{table_name}: Using all data (ID-based)")
+                            elif 'name' in df.columns:
+                                valid_locations = set(bronze_filtered['pickup_location']) | set(bronze_filtered['drop_location'])
+                                df = df[df['name'].isin(valid_locations)]
+                                st.sidebar.caption(f"✓ Filtered {layer}.{table_name} via name: {total_rows_before} → {len(df)} rows")
+                        elif layer == "gold" and table_name == "daily_booking_summary":
+                            # Daily summary: This should be recalculated, not filtered here
+                            st.sidebar.info(f"ℹ️ {layer}.{table_name}: Recalculated above")
+                        else:
+                            st.sidebar.warning(f"⚠️ {layer}.{table_name}: Using all data (no filter mapping)")
+                except Exception as e:
+                    st.sidebar.error(f"⚠️ {layer}.{table_name}: Filter error: {str(e)}")
+        
         return df
     except Exception as e:
         st.error(f"Error loading {layer}.{table_name}: {str(e)}")
         return pd.DataFrame()
+
+
+def get_available_extraction_months() -> list:
+    """Get list of available extraction months from bronze data
+    
+    Note: Cache removed to ensure fresh data on each load.
+    """
+    try:
+        catalog = get_catalog()
+        table = catalog.load_table("bronze.booking")
+        df = table.scan().to_pandas()
+        if 'extraction_month' in df.columns:
+            return sorted(df['extraction_month'].unique(), reverse=True)
+        return []
+    except:
+        return []
 
 
 def main():
@@ -73,19 +141,80 @@ def main():
         )
         
         st.markdown("---")
+        
+        # Extraction Date Filter
+        st.header("📅 Data Filter")
+        
+        # Get available extraction months
+        available_months = get_available_extraction_months()
+        
+        if len(available_months) > 1:
+            st.warning(f"⚠️ Multiple extractions detected: {len(available_months)}")
+        
+        if available_months:
+            selected_month = st.selectbox(
+                "Extraction Month",
+                options=["All"] + available_months,
+                index=1 if len(available_months) > 0 else 0,
+                key="extraction_month_filter",
+                help="Filter data by when it was extracted into the warehouse"
+            )
+            
+            if selected_month != "All":
+                st.info(f"📊 Showing data from extraction: **{selected_month}**")
+        else:
+            selected_month = "All"
+            st.info("No extraction_month data available")
+        
+        st.markdown("---")
+        
+        # Clear cache button
+        if st.button("🔄 Refresh Data", help="Clear cache and reload data"):
+            st.cache_data.clear()
+            st.rerun()
+        
+        st.markdown("---")
         st.info("**Medallion Architecture**\n\n"
                 "🥉 **Bronze**: Raw data\n\n"
                 "🥈 **Silver**: Cleaned & normalized\n\n"
                 "🥇 **Gold**: Business metrics")
 
+    # Debug info - remove this after confirming it works
+    st.caption(f"🔍 Debug: Current filter = `{selected_month}` | Layer = `{layer}`")
+
     # Gold Layer - Analytics Dashboard
     if "Gold" in layer:
         st.header("🥇 Gold Layer - Business Analytics")
         
-        # Load gold tables
-        daily_summary = load_table_data("gold", "daily_booking_summary")
-        customer_analytics = load_table_data("gold", "customer_analytics")
-        location_analytics = load_table_data("gold", "location_analytics")
+        # For gold layer with extraction_month filter, recalculate from bronze
+        if selected_month != "All":
+            # Recalculate daily_summary from filtered bronze data
+            try:
+                catalog = get_catalog()
+                bronze_booking = catalog.load_table("bronze.booking").scan().to_pandas()
+                bronze_booking = bronze_booking[bronze_booking['extraction_month'] == selected_month]
+                
+                # The bronze.booking already has the names directly (no IDs!)
+                # date column exists, time column for timestamp
+                # Aggregate
+                daily_summary = bronze_booking.groupby(['date', 'vehicle_type', 'booking_status']).agg({
+                    'booking_id': 'count',
+                    'booking_value': 'sum'
+                }).reset_index()
+                
+                daily_summary.columns = ['date', 'vehicle_type_name', 'booking_status_name', 'total_bookings', 'total_revenue']
+                daily_summary['avg_booking_value'] = daily_summary['total_revenue'] / daily_summary['total_bookings']
+                
+                st.sidebar.success(f"✓ Recalculated daily_summary from {len(bronze_booking)} filtered bookings")
+            except Exception as e:
+                st.sidebar.error(f"Error recalculating daily_summary: {e}")
+                daily_summary = pd.DataFrame()
+        else:
+            # Load gold tables directly when no filter
+            daily_summary = load_table_data("gold", "daily_booking_summary", selected_month)
+        
+        customer_analytics = load_table_data("gold", "customer_analytics", selected_month)
+        location_analytics = load_table_data("gold", "location_analytics", selected_month)
         
         if not daily_summary.empty:
             # Metrics row
@@ -248,7 +377,7 @@ def main():
         
         selected_table = st.selectbox("Select Table", table_options)
         
-        df = load_table_data("silver", selected_table)
+        df = load_table_data("silver", selected_table, selected_month)
         
         if not df.empty:
             st.subheader(f"📋 {selected_table.replace('_', ' ').title()} Data")
@@ -281,7 +410,7 @@ def main():
         
         selected_table = st.selectbox("Select Table", table_options)
         
-        df = load_table_data("bronze", selected_table)
+        df = load_table_data("bronze", selected_table, selected_month)
         
         if not df.empty:
             st.subheader(f"📋 {selected_table.replace('_', ' ').title()} Raw Data")
