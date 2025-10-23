@@ -204,10 +204,10 @@ app/etl/tasks/
 ### Main Flow
 
 ```python
-from app.etl.flows import granular_ride_booking_etl
+from app.etl.flows import ride_booking_etl
 
 # Run complete pipeline
-results = granular_ride_booking_etl(
+results = ride_booking_etl(
     source_file="data/ncr_ride_bookings.csv",
     extraction_date=datetime(2024, 12, 1),
     run_bronze=True,

@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.etl.flows import (
-    granular_ride_booking_etl,
+    ride_booking_etl,
     bronze_extraction_flow,
     silver_transformation_flow,
     gold_aggregation_flow,
@@ -132,7 +132,7 @@ def main():
     try:
         if args.command == "run":
             logger.info("Running complete granular ETL pipeline...")
-            results = granular_ride_booking_etl(
+            results = ride_booking_etl(
                 source_file=source_file,
                 extraction_date=extraction_date,
                 run_bronze=True,

@@ -9,7 +9,7 @@ from datetime import datetime
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from app.etl.flows import granular_ride_booking_etl
+from app.etl.flows import ride_booking_etl
 
 if __name__ == "__main__":
     print("=" * 80)
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     print()
     
     # Run the complete ETL pipeline
-    results = granular_ride_booking_etl(
+    results = ride_booking_etl(
         source_file="data/ncr_ride_bookings.csv",
         extraction_date=extraction_date,
         run_bronze=True,

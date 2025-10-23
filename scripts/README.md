@@ -163,7 +163,7 @@ for year, month in months:
     print(f"\nProcessing {year}-{month:02d}...")
     extraction_date = datetime(year, month, 1)
     
-    granular_ride_booking_etl(
+    ride_booking_etl(
         source_file="data/ncr_ride_bookings.csv",
         extraction_date=extraction_date,
         run_bronze=True,
