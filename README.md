@@ -22,7 +22,6 @@ This repository contains a complete ETL pipeline that:
 
 ## 📚 Documentation
 
-- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
 - **[ETL_ARCHITECTURE.md](ETL_ARCHITECTURE.md)** - Architecture details
 - **[streamlit_apps/](streamlit_apps/)** - Web visualization dashboards
 
