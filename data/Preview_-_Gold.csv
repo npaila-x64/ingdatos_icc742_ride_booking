@@ -1,0 +1,59 @@
+Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6,Unnamed: 7,Unnamed: 8,Unnamed: 9
+Nombre de tabla,Nombre columna,Tipo de dato,Formato,Clasificación,Comentario,Tabla de origen,Regla de negocio
+Cambios_producto,id_producto,Varchar(12),AA-9999-99-99,,Identificador único de cada producto,Articulo,
+,nombre_producto,Text,,,Nombre del producto,Articulo,
+,cantidad_cambios,Int,,,Cantidad de cambios realizados en el mes nombrado según el producto nombrado,,"para cada cambio en Cambio hacer
+    si ( cambio.id_articulo == ""id_producto"" ) y ( cambio.mes == ""mes"" ) y ( cambio.anio == ""anio"" ) entonces
+        cantidad_cambios ← cantidad_cambios + 1"
+,mes,Int,,,Mes en que se realizaron los cambios,Cambio,
+,anio,Int,,,Año en que se realizaron los cambios,Cambio,
+Ingresos_referencia,medio_referencia,Text,,,Medio a través del cual el cliente tuvo su primer contacto o conocimiento de la empresa,Cliente,
+,total_ingresos,Int,,,Suma total de ingresos obtenidos de ventas a clientes cuyo medio de referencia corresponde al nombrado,,"para cada venta en Venta hacer
+    si (venta.mes == ""mes"") y (cliente con rut == venta.rut_cliente tiene medio_referencia == ""medio_referencia"") entonces
+        valor_ventas ← valor_ventas + venta.total_articulo"
+,porcentaje_ingresos,Decimal,0-100,,Porcentaje que representan los ingresos en total_ingresos respecto al total de los ingresos obtenidos por la empresa,,"porcentaje_ingresos ← ( total_ingresos * 100)  / ""ingreso total de la empresa"""
+Crecimiento_mensual,mes,Int,,,Mes en el que se realizaron los ingresos obtenidos de ventas,Venta,
+,anio,Int,,,Año en el que se realizaron las ventas,Venta,
+,total_ingresos,Int,,,Suma total de ingresos obtenidos en el mes nombrado,,"para cada venta en Venta hacer
+    si venta.mes == ""mes"" entonces
+        valor_ventas ← valor_ventas + total_articulo"
+,porcentaje_crecimiento,Decimal,0-100,,Porcentaje de crecimiento de los ingresos en base a los ingresos del mes anterior,,"porcentaje_crecimiento ← ( total_ingresos * 100 / ""ingreso total del mes anterior"") - 100"
+Ventas_cliente,rut_cliente,Varchar(12),99.999.999-9,confidencial,Identificador único de cada cliente,Cliente,
+,cantidad_ventas,Int,,,Cantidad de ventas realizadas según el cliente nombrado,,"para cada venta en Venta hacer
+    si ( venta.rut_cliente == ""rut"" ) y ( venta.mes == ""mes"" ) y ( venta.anio == ""anio"" ) y ( venta.ov no se contó ya ) entonces
+        cantidad_ventas ← cantidad_ventas +1"
+,valor_ventas,Int,,,Suma total de los valores de las ventas realizadas según el cliente nombrado,,"para cada venta en Venta hacer
+    si venta.rut_cliente == ""rut"" y venta.mes == ""mes"" entonces
+        valor_ventas ← valor_ventas + total_articulo"
+,porcentaje_cantidad_ventas,Decimal,0-100,,Porcentaje que representan la cantidad de ventas realizadas según el cliente nombrado,,"porcentaje_cantidad_ventas ← (cantidad_ventas * 100) / "" ingreso total de la empresa """
+,porcentaje_valor_ventas,Decimal,0-100,,Porcentaje que representan la suma del total de los valores de las ventas realizadas según el cliente nombrado,,"porcentaje_valor_ventas ← (valor_ventas * 100) / "" ingreso total de la empresa """
+,mes,Int,,,Mes en que se realizaron las ventas,Venta,
+,anio,Int,,,Año en que se realizaron las ventas,Venta,
+Retencion_clientes,cantidad_total_clientes,Int,,,Cantidad total de clientes registrados por la empresa que realizaron al menos una compra en determinado mes,,"para cada cliente en Categorización_cliente hacer
+    cantidad_total_clientes ← cantidad_total_clientes + 1"
+,cantidad_frecuentes,Int,,,"Cantidad de clientes del tipo ""frecuente""",,"para cada cliente en Categorización_cliente hacer
+    si cliente.tipo_cliente == ""frecuente"" entonces
+        cantidad_frecuentes ← cantidad_frecuentes + 1"
+,cantidad_ocasionales,Int,,,"Cantidad de clientes del tipo ""ocasional""",,"para cada cliente en Categorización_cliente hacer
+    si cliente.tipo_cliente == ""ocasional"" entonces
+        cantidad_ocasional ← cantidad_ocasional + 1"
+,porcentaje_frecuentes,Decimal,0-100,,"Porcentaje que representa la cantidad total de clientes de tipo ""frecuente"" respecto al total de clientes registrados",,porcentaje_frecuentes ← (cantidad_frecuentes * 100) / cantidad_total_clientes
+Categorización_cliente,rut_cliente,Varchar(12),99.999.999-9,confidencial,Identificador único de cada cliente,Cliente,
+,tipo_cliente,Text,"""ocasional/frecuente""",,Identificador de clientes a los que se le hallan realizado sólo 1 venta o más de 1,,"para cada cliente en Clientes hacer
+    contar cuántas boletas distintas ha hecho en el último mes
+
+    si cantidad_ventas == 1 entonces
+        tipo_cliente ← ""ocasional""
+    sino
+        tipo_cliente ← ""frecuente"""
+Ventas_sucursal,sucursal,Text,,,Nombre de la sucursal en donde se realizaron las ventas,Venta,
+,cantidad_ventas,Int,,,Cantidad de ventas realizadas en la sucursal nombrada,,"para cada venta en Venta hacer
+    si ( venta.sucursal== ""sucursal"" ) y ( venta.mes == ""mes"" ) y ( venta.anio == ""anio"" ) y ( venta.ov no se contó ya) entonces
+        cantidad_ventas ← cantidad_ventas +1"
+,valor_ingresos,Int,,,Suma total de los valores de los ingresos realizados por las ventas en la sucursal nombrada,,"para cada venta en Venta hacer
+    si ( venta.sucursal== ""sucursal"" ) y ( venta.mes == ""mes"" ) y ( venta.anio == ""anio"" ) entonces
+        valor_ventas ← valor_ventas + total_articulo"
+,porcentaje_ventas,Decimal,0-100,,Porcentaje que representan las cantidades de ventas realizadas en cada sucursal,,"porcentaje_cantidad_ventas ← (cantidad_ventas * 100) / "" ingreso total de la empresa """
+,porcentaje_ingresos,Decimal,0-100,,Porcentaje que representa la suma de los ingresos obtenidos en cada sucursal,,"porcentaje_valor_ventas ← (valor_ventas * 100) / "" ingreso total de la empresa """
+,mes,Int,,,Mes en el que se realizaron las ventas,Venta,
+,anio,Int,,,Año en el que se realizaron las ventas,Venta,

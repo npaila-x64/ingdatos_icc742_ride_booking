@@ -1,0 +1,23 @@
+Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6,Unnamed: 7
+Nombre Columna,Tipo de dato,Formato,Descripción,Nombre asignado,Archivo de origen
+Date,text,YYYY-MM-DD,Fecha de la reserva,date,ncr_ride_bookings.csv
+Time,text,HH:MM:SS,Hora de la reserva,time,
+Booking ID,text,CNR9999999,Identificador único para cada reserva de viaje,booking_id,
+Booking Status,text,,"Estado de la reserva (Completada, Cancelada por el Cliente, Cancelada por el Conductor, etc.)",booking_status,
+Customer ID,text,CID9999999,Identificador único para clientes,customer_id,
+Vehicle Type,text,,"Tipo de vehículo (Go Mini, Go Sedan, Auto, eBike/Bike, UberXL, Premier Sedan",vehicle_type,
+Pickup Location,text,,Lugar de inicio del viaje,pickup_location,
+Drop Location,text,,Ubicación de destino del viaje,drop_location,
+Avg VTAT,text,,Tiempo promedio que tarda el conductor en llegar al lugar de recogida (en minutos),avg_vtat,
+Avg CTAT,text,,Duración media del viaje desde la recogida hasta el destino (en minutos),avg_ctat,
+Cancelled Rides by Customer,text,,Bandera de cancelación iniciada por el cliente,cancelled_by_customer,
+Reason for cancelling by Customer,text,,Motivo de la cancelación del cliente,customer_cancel_reason,
+Cancelled Rides by Driver,text,,Bandera de cancelación iniciada por el conductor,cancelled_by_driver,
+Driver Cancellation Reason,text,,Motivo de la cancelación del conductor,driver_cancel_reason,
+Incomplete Rides,text,,Bandera de viaje incompleta,incomplete_ride,
+Incomplete Rides Reason,text,,Motivo de los viajes incompletos,incomplete_ride_reason,
+Booking Value,text,,Monto total de la tarifa del viaje,booking_value,
+Ride Distance,text,,Distancia recorrida durante el recorrido (en km),ride_distance,
+Driver Ratings,text,,Calificación otorgada al conductor (escala 1-5),driver_rating,
+Customer Rating,text,,Calificación otorgada por el cliente (escala 1-5),customer_rating,
+Payment Method,text,,"Método utilizado para el pago (UPI, Efectivo, Tarjeta de Crédito, Uber Wallet, Tarjeta de Débito)",payment_method,

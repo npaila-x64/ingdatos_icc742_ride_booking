@@ -290,7 +290,7 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
             
             with col2:
-                st.subheader("� Vehicle Types")
+                st.subheader("🚙 Vehicle Types")
                 vehicle_data = daily_summary.groupby('vehicle_type_name').agg({
                     'total_bookings': 'sum'
                 }).reset_index()
