@@ -188,8 +188,9 @@ GOLD_DAILY_BOOKING_SUMMARY_SCHEMA = Schema(
     NestedField(4, "total_bookings", LongType(), required=False),
     NestedField(5, "total_revenue", DoubleType(), required=False),
     NestedField(6, "avg_booking_value", DoubleType(), required=False),
-    NestedField(7, "created_at", TimestampType(), required=False),
-    NestedField(8, "updated_at", TimestampType(), required=False),
+    NestedField(7, "extraction_month", StringType(), required=False),
+    NestedField(8, "created_at", TimestampType(), required=False),
+    NestedField(9, "updated_at", TimestampType(), required=False),
 )
 
 GOLD_CUSTOMER_ANALYTICS_SCHEMA = Schema(
@@ -202,8 +203,9 @@ GOLD_CUSTOMER_ANALYTICS_SCHEMA = Schema(
     NestedField(7, "first_booking_date", DateType(), required=False),
     NestedField(8, "last_booking_date", DateType(), required=False),
     NestedField(9, "customer_lifetime_days", LongType(), required=False),
-    NestedField(10, "created_at", TimestampType(), required=False),
-    NestedField(11, "updated_at", TimestampType(), required=False),
+    NestedField(10, "extraction_month", StringType(), required=False),
+    NestedField(11, "created_at", TimestampType(), required=False),
+    NestedField(12, "updated_at", TimestampType(), required=False),
 )
 
 GOLD_LOCATION_ANALYTICS_SCHEMA = Schema(
@@ -213,8 +215,9 @@ GOLD_LOCATION_ANALYTICS_SCHEMA = Schema(
     NestedField(4, "dropoffs", LongType(), required=False),
     NestedField(5, "avg_booking_value", DoubleType(), required=False),
     NestedField(6, "total_activity", LongType(), required=False),
-    NestedField(7, "created_at", TimestampType(), required=False),
-    NestedField(8, "updated_at", TimestampType(), required=False),
+    NestedField(7, "extraction_month", StringType(), required=False),
+    NestedField(8, "created_at", TimestampType(), required=False),
+    NestedField(9, "updated_at", TimestampType(), required=False),
 )
 
 

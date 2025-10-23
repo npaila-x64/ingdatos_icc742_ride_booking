@@ -52,8 +52,12 @@ def aggregate_gold_customer_analytics(
         logger.warning("Missing data in Silver layer")
         return 0
     
-    # Calculate customer metrics
-    customer_stats = bookings.groupby('customer_id').agg(
+    # Calculate customer metrics - group by extraction_month if it exists
+    groupby_cols = ['customer_id']
+    if 'extraction_month' in bookings.columns:
+        groupby_cols.append('extraction_month')
+    
+    customer_stats = bookings.groupby(groupby_cols).agg(
         total_bookings=('booking_id', 'count'),
         total_spent=('booking_value', 'sum'),
         avg_booking_value=('booking_value', 'mean'),
@@ -63,7 +67,13 @@ def aggregate_gold_customer_analytics(
     
     # Merge with customer data (drop total_bookings from customers to avoid conflict)
     customers_clean = customers.drop(columns=['total_bookings'], errors='ignore')
-    customer_analytics = customers_clean.merge(customer_stats, on='customer_id', how='left')
+    
+    # Determine merge columns
+    merge_cols = ['customer_id']
+    if 'extraction_month' in bookings.columns and 'extraction_month' in customers_clean.columns:
+        merge_cols.append('extraction_month')
+    
+    customer_analytics = customers_clean.merge(customer_stats, on=merge_cols, how='left')
     
     # Calculate customer lifetime days (convert dates to datetime first)
     customer_analytics['customer_lifetime_days'] = (

@@ -70,10 +70,13 @@ def aggregate_gold_daily_booking_summary(
         how='left'
     ).rename(columns={'name': 'booking_status_name'})
     
-    # Aggregate by date, vehicle type, and status
-    daily_summary = bookings.groupby([
-        'date', 'vehicle_type_name', 'booking_status_name'
-    ]).agg(
+    # Determine groupby columns - include extraction_month if it exists
+    groupby_cols = ['date', 'vehicle_type_name', 'booking_status_name']
+    if 'extraction_month' in bookings.columns:
+        groupby_cols.append('extraction_month')
+    
+    # Aggregate by date, vehicle type, status (and extraction_month if present)
+    daily_summary = bookings.groupby(groupby_cols).agg(
         total_bookings=('booking_id', 'count'),
         total_revenue=('booking_value', 'sum'),
         avg_booking_value=('booking_value', 'mean')
