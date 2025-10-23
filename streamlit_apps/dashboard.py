@@ -50,6 +50,15 @@ def load_table_data(layer: str, table_name: str, extraction_month: str = "All") 
         table = catalog.load_table(f"{layer}.{table_name}")
         df = table.scan().to_pandas()
         
+        # Fix timestamp columns for Arrow compatibility
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                # Check if it contains timestamp-like objects
+                if len(df) > 0 and isinstance(df[col].iloc[0], pd.Timestamp):
+                    df[col] = pd.to_datetime(df[col])
+                elif df[col].apply(lambda x: isinstance(x, pd.Timestamp)).any():
+                    df[col] = pd.to_datetime(df[col])
+        
         # Debug logging
         total_rows_before = len(df)
         
@@ -394,7 +403,7 @@ def main():
                 st.metric("Memory Usage", f"{memory_mb:.2f} MB")
             
             # Show data
-            st.dataframe(df, use_container_width=True, height=400)
+            st.dataframe(df, width='stretch', height=400)
             
             # Column statistics
             with st.expander("📊 Column Statistics"):
@@ -427,7 +436,7 @@ def main():
                 st.metric("Memory Usage", f"{memory_mb:.2f} MB")
             
             # Show data
-            st.dataframe(df, use_container_width=True, height=400)
+            st.dataframe(df, width='stretch', height=400)
             
             # Show schema
             with st.expander("🔍 Table Schema"):
@@ -437,7 +446,7 @@ def main():
                     'Non-Null Count': df.count().values,
                     'Null Count': df.isna().sum().values
                 })
-                st.dataframe(schema_df, use_container_width=True)
+                st.dataframe(schema_df, width='stretch')
 
     # Footer
     st.markdown("---")
