@@ -217,7 +217,7 @@ def gold_aggregation_flow(
     description="Granular ETL pipeline implementing medallion architecture with individual entity tasks",
     log_prints=True,
 )
-def granular_ride_booking_etl(
+def ride_booking_etl(
     source_file: Optional[str] = None,
     extraction_date: Optional[datetime] = None,
     run_bronze: bool = True,
@@ -301,32 +301,6 @@ def granular_ride_booking_etl(
     return results
 
 
-# Keep backward compatibility with existing flow names
-@flow(
-    name="ride-booking-medallion-etl",
-    description="ETL pipeline implementing medallion architecture for ride booking data with Apache Iceberg",
-    log_prints=True,
-)
-def ride_booking_etl(
-    source_file: Optional[str] = None,
-    extraction_date: Optional[datetime] = None,
-    run_bronze: bool = True,
-    run_silver: bool = True,
-    run_gold: bool = True,
-) -> dict[str, dict[str, int]]:
-    """Main ETL flow - delegates to granular implementation.
-    
-    This is kept for backward compatibility.
-    """
-    return granular_ride_booking_etl(
-        source_file=source_file,
-        extraction_date=extraction_date,
-        run_bronze=run_bronze,
-        run_silver=run_silver,
-        run_gold=run_gold,
-    )
-
-
 @flow(
     name="ride-booking-incremental-etl",
     description="Incremental ETL for processing new ride booking data",
@@ -346,7 +320,7 @@ def incremental_etl(
     Returns:
         Dictionary with execution statistics for each layer
     """
-    return granular_ride_booking_etl(
+    return ride_booking_etl(
         source_file=source_file,
         extraction_date=extraction_date,
         run_bronze=True,
@@ -367,7 +341,7 @@ def backfill_etl() -> dict[str, dict[str, int]]:
     Returns:
         Dictionary with execution statistics for each layer
     """
-    return granular_ride_booking_etl(
+    return ride_booking_etl(
         source_file=None,
         extraction_date=None,
         run_bronze=False,  # Skip Bronze, use existing data
@@ -378,4 +352,4 @@ def backfill_etl() -> dict[str, dict[str, int]]:
 
 if __name__ == "__main__":
     # Allow running the flow directly from command line
-    granular_ride_booking_etl()
+    ride_booking_etl()
