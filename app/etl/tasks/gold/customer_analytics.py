@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from prefect import task
 
 from app.adapters import iceberg_schemas
 
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@task(name="aggregate-gold-customer-analytics", retries=2, retry_delay_seconds=30)
 def aggregate_gold_customer_analytics(
     iceberg_adapter: IcebergAdapter,
 ) -> int:

@@ -106,7 +106,7 @@ app/etl/tasks/
 | `extract_bronze_incompleted_ride` | Incompleted Ride | `bronze.incompleted_ride` | Incomplete ride reasons |
 
 **Key Features:**
-- All tasks are **Prefect @task** decorated with `retries=2`
+- Each entity extraction is invoked by the **Airflow TaskFlow DAG** with `retries=2` and a 5-minute delay defined in `DEFAULT_ARGS`
 - All tasks receive the **same prepared DataFrame**
 - All tasks write to Iceberg in **append mode**
 - All tasks are **idempotent** and **partition-aware**
@@ -165,7 +165,7 @@ app/etl/tasks/
 - **Dependency ordering:** Facts wait for dimensions to complete
 - All tasks write in **overwrite mode** (clean data)
 - All tasks add **created_at** and **updated_at** timestamps
-- Prefect automatically handles task dependencies
+- Airflow TaskFlow wiring ensures dimensions finish before downstream fact tasks run
 
 ---
 
@@ -199,7 +199,48 @@ app/etl/tasks/
 
 ---
 
-## 🔄 Orchestration Flows
+## 🪂 Airflow Orchestration
+
+The canonical scheduler lives in `airflow/dags/ride_booking_medallion.py`. Three DAGs cover the standard operating modes:
+
+- `ride_booking_medallion`: on-demand or UI-triggered runs with boolean params (`run_bronze`, `run_silver`, `run_gold`) plus overrides for `source_file`, `extraction_date`, and `no_date_filter`.
+- `ride_booking_incremental`: a scheduled (2 AM) incremental loader that requires a fresh CSV path and processes Bronze → Silver → Gold.
+- `ride_booking_backfill`: an on-demand DAG that skips Bronze and rematerializes Silver/Gold from existing Bronze tables.
+
+Each DAG relies on Airflow's **TaskFlow API**, so the Python orchestration helpers in `app/etl/flows.py` are wrapped as first-class Airflow tasks with consistent retries, logging, and dependency edges:
+
+```python
+@dag(dag_id="ride_booking_medallion", schedule=None, default_args=DEFAULT_ARGS)
+def ride_booking_medallion():
+    @task(task_id="bronze_layer")
+    def run_bronze():
+        return bronze_extraction_flow(...)
+
+    @task(task_id="silver_layer")
+    def run_silver(bronze_results):
+        return silver_transformation_flow(...)
+
+    @task(task_id="gold_layer")
+    def run_gold(silver_results):
+        return gold_aggregation_flow(...)
+
+    bronze_output = run_bronze()
+    silver_output = run_silver(bronze_output)
+    run_gold(silver_output)
+```
+
+When the Dockerized Airflow stack is running (`docker compose up` inside the `airflow/` directory), trigger runs from the UI or CLI:
+
+```
+airflow dags trigger ride_booking_medallion \
+  --conf '{"source_file": "data/ncr_ride_bookings.csv", "extraction_date": "2024-12-01"}'
+```
+
+Airflow Params feed directly into the TaskFlow call stack, so the same configuration surfaces inside each layer of the medallion pipeline.
+
+## 🔄 Python Orchestration Helpers
+
+Airflow wraps the following functions, but they remain callable from local CLIs, notebooks, or tests when you want to bypass the scheduler.
 
 ### Main Flow
 
@@ -258,9 +299,9 @@ Assuming 9 Bronze extractions take 1 second each:
 - **Parallel (new):** ~1-2 seconds total (limited by CPU/IO)
 
 Actual speedup depends on:
-- Number of CPU cores
+- Number of available Airflow workers / CPU cores
 - I/O throughput (disk, network)
-- Prefect task runner configuration (LocalDaskTaskRunner, RayTaskRunner)
+- Airflow executor parallelism settings (Local, Celery, etc.)
 
 ### Resource Usage
 

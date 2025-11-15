@@ -1,1 +1,1 @@
-"""ETL scaffolding package built around Prefect orchestrations."""
+"""ETL scaffolding package orchestrated via Apache Airflow."""

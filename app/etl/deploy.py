@@ -1,63 +1,15 @@
-"""Prefect deployment configurations for ride booking ETL flows."""
+"""Airflow deployment utilities.
 
-import asyncio
+Provides a helper that returns the path to the Airflow docker-compose file so other
+scripts can trigger the orchestrator without duplicating relative paths.
+"""
 
-from prefect import serve
+from __future__ import annotations
 
-from app.etl.flows import (
-    backfill_etl,
-    incremental_etl,
-    ride_booking_etl,
-)
+from pathlib import Path
 
 
-async def create_deployments():
-    """Create Prefect deployments for ETL flows."""
-    
-    # Main ETL deployment
-    main_deployment = await ride_booking_etl.to_deployment(
-        name="ride-booking-etl-main",
-        description="Main ETL pipeline for ride booking data with medallion architecture",
-        tags=["etl", "medallion", "ride-booking", "production"],
-        version="1.0.0",
-    )
-    
-    # Incremental ETL deployment (for scheduled runs)
-    incremental_deployment = await incremental_etl.to_deployment(
-        name="ride-booking-etl-incremental",
-        description="Incremental ETL for processing new ride booking data files",
-        tags=["etl", "incremental", "ride-booking"],
-        version="1.0.0",
-        # Schedule for daily runs at 2 AM
-        # cron="0 2 * * *",
-    )
-    
-    # Backfill ETL deployment (for manual runs)
-    backfill_deployment = await backfill_etl.to_deployment(
-        name="ride-booking-etl-backfill",
-        description="Backfill ETL for reprocessing all historical ride booking data",
-        tags=["etl", "backfill", "ride-booking"],
-        version="1.0.0",
-    )
-    
-    return [main_deployment, incremental_deployment, backfill_deployment]
+def airflow_compose_path() -> Path:
+    """Return the path to the Airflow docker-compose file."""
 
-
-async def main():
-    """Serve all deployments."""
-    deployments = await create_deployments()
-    
-    print("=" * 80)
-    print("Starting Prefect deployment server for Ride Booking ETL")
-    print("=" * 80)
-    print(f"Total deployments: {len(deployments)}")
-    for deployment in deployments:
-        print(f"  - {deployment.name}")
-    print("=" * 80)
-    
-    # Serve all deployments
-    await serve(*deployments)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    return Path(__file__).resolve().parents[2] / "airflow" / "docker-compose.yaml"

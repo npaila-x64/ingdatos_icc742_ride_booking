@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from prefect import task
 
 from app.adapters.iceberg_schemas import BRONZE_VEHICLE_TYPE_SCHEMA
 
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@task(name="extract-bronze-vehicle-type", retries=2, retry_delay_seconds=30)
 def extract_bronze_vehicle_type(
     source_df: pd.DataFrame,
     iceberg_adapter: IcebergAdapter,

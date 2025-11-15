@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
-from prefect import task
 
 from app.adapters import iceberg_schemas
 
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@task(name="transform-silver-booking", retries=2, retry_delay_seconds=30)
 def transform_silver_booking(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -84,7 +82,6 @@ def transform_silver_booking(
     return rows_written
 
 
-@task(name="transform-silver-ride", retries=2, retry_delay_seconds=30)
 def transform_silver_ride(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -126,7 +123,6 @@ def transform_silver_ride(
     return rows_written
 
 
-@task(name="transform-silver-cancelled-ride", retries=2, retry_delay_seconds=30)
 def transform_silver_cancelled_ride(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -177,7 +173,6 @@ def transform_silver_cancelled_ride(
     return rows_written
 
 
-@task(name="transform-silver-incompleted-ride", retries=2, retry_delay_seconds=30)
 def transform_silver_incompleted_ride(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,

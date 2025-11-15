@@ -8,12 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from prefect import task
 
 logger = logging.getLogger(__name__)
 
 
-@task(name="load-and-prepare-source-data", retries=2, retry_delay_seconds=30)
 def load_and_prepare_source_data(
     source_file: Path,
     extraction_date: Optional[datetime] = None,

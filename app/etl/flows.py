@@ -1,4 +1,4 @@
-"""Granular Prefect flows orchestrating the medallion architecture ETL pipeline."""
+"""Granular ETL orchestration helpers for the medallion pipeline."""
 
 from __future__ import annotations
 
@@ -6,8 +6,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
-from prefect import flow, task
 
 from app.adapters.iceberg_adapter import IcebergAdapter
 from app.config.settings import load_settings
@@ -47,7 +45,6 @@ from app.etl.tasks.gold import (
 logger = logging.getLogger(__name__)
 
 
-@task(name="initialize-iceberg-namespaces")
 def initialize_iceberg_namespaces(iceberg_adapter: IcebergAdapter) -> None:
     """Ensure Iceberg namespaces (schemas) are created."""
     logger.info("Initializing Iceberg namespaces")
@@ -59,11 +56,6 @@ def initialize_iceberg_namespaces(iceberg_adapter: IcebergAdapter) -> None:
     logger.info("Iceberg namespaces initialized")
 
 
-@flow(
-    name="ride-booking-bronze-extraction",
-    description="Extract raw data from source CSV into Bronze layer Iceberg tables",
-    log_prints=True,
-)
 def bronze_extraction_flow(
     source_file: Path,
     iceberg_adapter: IcebergAdapter,
@@ -120,11 +112,6 @@ def bronze_extraction_flow(
     return results
 
 
-@flow(
-    name="ride-booking-silver-transformation",
-    description="Transform Bronze data into normalized Silver dimensional model",
-    log_prints=True,
-)
 def silver_transformation_flow(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -153,7 +140,7 @@ def silver_transformation_flow(
     payment_method_count = transform_silver_payment_method(iceberg_adapter, extraction_month)
     
     # Step 2: Transform facts (depend on dimensions, can run in parallel after dimensions complete)
-    # Prefect will automatically wait for dimensions to complete
+    # Fact transformations occur after dimension processing completes
     booking_count = transform_silver_booking(iceberg_adapter, extraction_month)
     ride_count = transform_silver_ride(iceberg_adapter, extraction_month)
     cancelled_ride_count = transform_silver_cancelled_ride(iceberg_adapter, extraction_month)
@@ -175,11 +162,6 @@ def silver_transformation_flow(
     return results
 
 
-@flow(
-    name="ride-booking-gold-aggregation",
-    description="Aggregate Silver data into Gold analytics tables",
-    log_prints=True,
-)
 def gold_aggregation_flow(
     iceberg_adapter: IcebergAdapter,
     target_date: Optional[datetime] = None,
@@ -214,11 +196,6 @@ def gold_aggregation_flow(
     return results
 
 
-@flow(
-    name="ride-booking-granular-medallion-etl",
-    description="Granular ETL pipeline implementing medallion architecture with individual entity tasks",
-    log_prints=True,
-)
 def ride_booking_etl(
     source_file: Optional[str] = None,
     extraction_date: Optional[datetime] = None,
@@ -306,10 +283,6 @@ def ride_booking_etl(
     return results
 
 
-@flow(
-    name="ride-booking-incremental-etl",
-    description="Incremental ETL for processing new ride booking data",
-)
 def incremental_etl(
     source_file: str,
     extraction_date: Optional[datetime] = None,
@@ -334,10 +307,6 @@ def incremental_etl(
     )
 
 
-@flow(
-    name="ride-booking-backfill-etl",
-    description="Backfill ETL for reprocessing all historical data",
-)
 def backfill_etl() -> dict[str, dict[str, int]]:
     """Backfill flow for reprocessing all data in Silver and Gold layers.
     

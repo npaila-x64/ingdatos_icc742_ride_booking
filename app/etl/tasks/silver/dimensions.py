@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
-from prefect import task
 
 from app.adapters import iceberg_schemas
 
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@task(name="transform-silver-customer", retries=2, retry_delay_seconds=30)
 def transform_silver_customer(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -63,7 +61,6 @@ def transform_silver_customer(
     return rows_written
 
 
-@task(name="transform-silver-vehicle-type", retries=2, retry_delay_seconds=30)
 def transform_silver_vehicle_type(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -107,7 +104,6 @@ def transform_silver_vehicle_type(
     return rows_written
 
 
-@task(name="transform-silver-location", retries=2, retry_delay_seconds=30)
 def transform_silver_location(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -151,7 +147,6 @@ def transform_silver_location(
     return rows_written
 
 
-@task(name="transform-silver-booking-status", retries=2, retry_delay_seconds=30)
 def transform_silver_booking_status(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,
@@ -195,7 +190,6 @@ def transform_silver_booking_status(
     return rows_written
 
 
-@task(name="transform-silver-payment-method", retries=2, retry_delay_seconds=30)
 def transform_silver_payment_method(
     iceberg_adapter: IcebergAdapter,
     extraction_month: Optional[str] = None,

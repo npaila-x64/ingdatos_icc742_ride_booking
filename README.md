@@ -1,6 +1,6 @@
-# Ride Booking ETL with Prefect - Medallion Architecture (Apache Iceberg)
+# Ride Booking ETL with Airflow - Medallion Architecture (Apache Iceberg)
 
-A production-ready ETL pipeline implementing the **Medallion Architecture** (Bronze → Silver → Gold) for ride booking analytics. This project processes ride booking data from CSV files into a multi-layered analytical data lakehouse using **Prefect** orchestration and **Apache Iceberg** storage.
+A production-ready ETL pipeline implementing the **Medallion Architecture** (Bronze → Silver → Gold) for ride booking analytics. This project processes ride booking data from CSV files into a multi-layered analytical data lakehouse using **Apache Airflow** orchestration and **Apache Iceberg** storage.
 
 ## 🎯 Overview
 
@@ -8,13 +8,13 @@ This repository contains a complete ETL pipeline that:
 - **Extracts** ride booking data from CSV files into a Bronze (raw) layer
 - **Transforms** data into a normalized Silver (dimensional) layer
 - **Aggregates** analytics into a Gold (metrics) layer
-- **Orchestrates** the entire pipeline with Prefect workflows
+- **Orchestrates** the entire pipeline with Airflow DAGs
 
 ### Key Features
 
 - **Medallion Architecture** Industry-standard data lake pattern (Bronze → Silver → Gold)  
 - **Apache Iceberg** Modern table format with ACID transactions and time travel  
-- **Prefect Orchestration** Robust workflow management with retries and monitoring  
+- **Airflow Orchestration** Robust workflow management with retries, scheduling, and monitoring  
 - **Schema Evolution** Seamless schema changes without rewriting data  
 - **Time Travel** Query historical data snapshots  
 - **Idempotent Operations** Safe to re-run with upsert logic  
@@ -55,6 +55,36 @@ venv\Scripts\activate     # On Windows
 pip install -r requirements.txt
 # OR if using pyproject.toml
 pip install -e .
+```
+
+### Run the Airflow orchestrator locally
+
+The repository ships with a ready-to-use Airflow stack under `airflow/` that mounts the
+entire project into the scheduler/webserver containers.
+
+```bash
+# 1. Bootstrap the Airflow metadata database and admin user
+cd airflow
+docker compose up airflow-init
+
+# 2. Start the webserver, scheduler, and triggerer
+docker compose up -d
+```
+
+- Airflow UI: http://localhost:8080 (default admin/admin credentials configured during `airflow-init`)
+- Available DAGs: `ride_booking_medallion`, `ride_booking_incremental`, `ride_booking_backfill`
+
+Trigger the main DAG manually from the UI or via CLI:
+
+```bash
+docker compose run --rm airflow-webserver airflow dags trigger ride_booking_medallion \
+  --conf '{"source_file": "/opt/ride_booking/data/ncr_ride_bookings.csv", "no_date_filter": true}'
+```
+
+Stop the stack when finished:
+
+```bash
+docker compose down
 ```
 
 ### Running the ETL Pipeline
