@@ -1,0 +1,27 @@
+# Airflow Project Settings for airflowctl
+airflow_version: "3.1.3"
+python_version: "3.12"
+
+# Project metadata
+project_name: "etl_orchestrator"
+description: "Ride Booking ETL Orchestration with Apache Airflow"
+
+# Optional: Predefined connections
+connections:
+  - conn_id: postgres_default
+    conn_type: postgres
+    host: localhost
+    port: 5432
+    login: airflow
+    password: airflow
+    schema: postgres
+    description: "Local PostgreSQL for metadata"
+
+# Optional: Predefined variables
+variables:
+  - key: WAREHOUSE_PATH
+    value: /home/nicolas/Repositories/Personal/ingdatos_icc742_ride_booking/warehouse
+    description: "Path to Iceberg warehouse"
+  - key: DATA_PATH
+    value: /home/nicolas/Repositories/Personal/ingdatos_icc742_ride_booking/data
+    description: "Path to source data files"

@@ -1,6 +1,13 @@
 venv
 .venv
 .env
+logs
 
 __pycache__
 warehouse
+
+# Airflow
+airflow/logs/
+airflow/.airflow/
+.airflow/
+bootstrap-settings.json

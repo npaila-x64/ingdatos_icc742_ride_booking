@@ -57,36 +57,6 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-### Run the Airflow orchestrator locally
-
-The repository ships with a ready-to-use Airflow stack under `airflow/` that mounts the
-entire project into the scheduler/webserver containers.
-
-```bash
-# 1. Bootstrap the Airflow metadata database and admin user
-cd airflow
-docker compose up airflow-init
-
-# 2. Start the webserver, scheduler, and triggerer
-docker compose up -d
-```
-
-- Airflow UI: http://localhost:8080 (default admin/admin credentials configured during `airflow-init`)
-- Available DAGs: `ride_booking_medallion`, `ride_booking_incremental`, `ride_booking_backfill`
-
-Trigger the main DAG manually from the UI or via CLI:
-
-```bash
-docker compose run --rm airflow-webserver airflow dags trigger ride_booking_medallion \
-  --conf '{"source_file": "/opt/ride_booking/data/ncr_ride_bookings.csv", "no_date_filter": true}'
-```
-
-Stop the stack when finished:
-
-```bash
-docker compose down
-```
-
 ### Running the ETL Pipeline
 
 **Important:** Always activate the virtual environment before running any commands:
