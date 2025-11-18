@@ -4,15 +4,16 @@ SQL Query Interface for Apache Iceberg Data
 Run with: streamlit run sql_query.py
 """
 import streamlit as st
-import pandas as pd
 import duckdb
 import plotly.express as px
 import sys
 from pathlib import Path
 from datetime import datetime
 
-# Add app to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Ensure repository root (where `app` package lives) is on sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config.settings import load_settings
 
