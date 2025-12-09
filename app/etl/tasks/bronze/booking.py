@@ -35,12 +35,14 @@ def extract_bronze_booking(
     booking_df = source_df[[
         'Booking ID', 'Customer ID', 'Vehicle Type', 'Pickup Location', 'Drop Location',
         'Booking Status', 'Payment Method', 'Booking Value', 'Date', 'Time',
+        'Avg VTAT', 'Avg CTAT',
         'extraction_date', 'extraction_month', 'source_file'
     ]].copy()
     
     booking_df.columns = [
         'booking_id', 'customer_id', 'vehicle_type', 'pickup_location', 'drop_location',
         'booking_status', 'payment_method', 'booking_value', 'date', 'time',
+        'avg_vtat', 'avg_ctat',
         'extraction_date', 'extraction_month', 'source_file'
     ]
     

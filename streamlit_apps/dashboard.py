@@ -102,6 +102,14 @@ def load_table_data(layer: str, table_name: str, extraction_month: str = "All") 
                         elif layer == "gold" and table_name == "daily_booking_summary":
                             # Daily summary: This should be recalculated, not filtered here
                             st.sidebar.info(f"ℹ️ {layer}.{table_name}: Recalculated above")
+                        elif layer == "gold" and 'date' in df.columns:
+                            # New KPI tables with date column: filter by dates in bronze bookings
+                            valid_dates = set(bronze_filtered['date'])
+                            df = df[df['date'].isin(valid_dates)]
+                            st.sidebar.caption(f"✓ Filtered {layer}.{table_name} via date: {total_rows_before} → {len(df)} rows")
+                        elif layer == "gold" and table_name == "monthly_retention":
+                            # Monthly retention: no direct filter, use all data
+                            st.sidebar.info(f"ℹ️ {layer}.{table_name}: Using all data (monthly aggregation)")
                         else:
                             st.sidebar.warning(f"⚠️ {layer}.{table_name}: Using all data (no filter mapping)")
                 except Exception as e:
@@ -224,6 +232,14 @@ def main():
         
         customer_analytics = load_table_data("gold", "customer_analytics", selected_month)
         location_analytics = load_table_data("gold", "location_analytics", selected_month)
+        
+        # Load new KPI tables
+        cancellation_rate = load_table_data("gold", "cancellation_rate", selected_month)
+        incomplete_rate = load_table_data("gold", "incomplete_rate", selected_month)
+        avg_revenue_per_ride = load_table_data("gold", "avg_revenue_per_ride", selected_month)
+        user_frequency = load_table_data("gold", "user_frequency", selected_month)
+        monthly_retention = load_table_data("gold", "monthly_retention", selected_month)
+        avg_wait_time = load_table_data("gold", "avg_wait_time", selected_month)
         
         if not daily_summary.empty:
             # Metrics row
@@ -374,6 +390,283 @@ def main():
                     labels={'name': 'Location', 'dropoffs': 'Dropoffs'}
                 )
                 fig.update_xaxes(tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Cancellation Rate KPI
+        if not cancellation_rate.empty:
+            st.markdown("---")
+            st.subheader("📉 Cancellation Rate")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                avg_cancellation = cancellation_rate['cancellation_rate_pct'].mean()
+                st.metric(
+                    "Average Rate", 
+                    f"{avg_cancellation:.2f}%",
+                    help="Average percentage of cancelled rides"
+                )
+                
+                total_cancelled = cancellation_rate['cancelled_bookings'].sum()
+                st.metric(
+                    "Total Cancelled", 
+                    f"{total_cancelled:,}",
+                    help="Total cancelled bookings"
+                )
+            
+            with col2:
+                fig = px.line(
+                    cancellation_rate,
+                    x='date',
+                    y='cancellation_rate_pct',
+                    title='Cancellation Rate Trend',
+                    labels={'date': 'Date', 'cancellation_rate_pct': 'Cancellation Rate (%)'},
+                    markers=True
+                )
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Incomplete Rate KPI
+        if not incomplete_rate.empty:
+            st.markdown("---")
+            st.subheader("⚠️ Incomplete Ride Rate")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                avg_incomplete = incomplete_rate['incomplete_rate_pct'].mean()
+                st.metric(
+                    "Average Rate", 
+                    f"{avg_incomplete:.2f}%",
+                    help="Average percentage of incomplete rides"
+                )
+                
+                total_incomplete = incomplete_rate['incomplete_bookings'].sum()
+                st.metric(
+                    "Total Incomplete", 
+                    f"{total_incomplete:,}",
+                    help="Total incomplete rides"
+                )
+            
+            with col2:
+                fig = px.line(
+                    incomplete_rate,
+                    x='date',
+                    y='incomplete_rate_pct',
+                    title='Incomplete Ride Rate Trend',
+                    labels={'date': 'Date', 'incomplete_rate_pct': 'Incomplete Rate (%)'},
+                    markers=True,
+                    color_discrete_sequence=['#ff7f0e']
+                )
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Average Revenue per Ride KPI
+        if not avg_revenue_per_ride.empty:
+            st.markdown("---")
+            st.subheader("💵 Average Revenue per Completed Ride")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                overall_avg = avg_revenue_per_ride['avg_revenue_per_ride'].mean()
+                st.metric(
+                    "Overall Average", 
+                    f"${overall_avg:.2f}",
+                    help="Average revenue per completed ride"
+                )
+                
+                total_completed = avg_revenue_per_ride['completed_rides'].sum()
+                st.metric(
+                    "Completed Rides", 
+                    f"{total_completed:,}",
+                    help="Total completed rides"
+                )
+            
+            with col2:
+                fig = px.bar(
+                    avg_revenue_per_ride,
+                    x='date',
+                    y='avg_revenue_per_ride',
+                    title='Average Revenue per Completed Ride',
+                    labels={'date': 'Date', 'avg_revenue_per_ride': 'Average Revenue ($)'},
+                    color_discrete_sequence=['#2ca02c']
+                )
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # User Segmentation KPI
+        if not user_frequency.empty:
+            st.markdown("---")
+            st.subheader("⭐ Customer Satisfaction")
+            
+            # Metrics row
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                avg_customer_rating = user_frequency['avg_customer_rating'].mean()
+                st.metric("Customer Rating", f"{avg_customer_rating:.2f} / 5.0")
+            
+            with col2:
+                avg_driver_rating = user_frequency['avg_driver_rating'].mean()
+                st.metric("Driver Rating", f"{avg_driver_rating:.2f} / 5.0")
+            
+            with col3:
+                avg_satisfaction_score = user_frequency['satisfaction_score'].mean()
+                st.metric("Satisfaction Score", f"{avg_satisfaction_score:.1f} / 100")
+            
+            with col4:
+                total_rated = user_frequency['total_rated_rides'].sum()
+                st.metric("Rated Rides", f"{total_rated:,}")
+            
+            st.markdown("---")
+            
+            # Charts
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Line chart - ratings over time
+                fig = px.line(
+                    user_frequency,
+                    x='date',
+                    y=['avg_customer_rating', 'avg_driver_rating'],
+                    title='Ratings Evolution',
+                    labels={'value': 'Rating (1-5)', 'variable': 'Type', 'date': 'Date'},
+                    color_discrete_sequence=['#1f77b4', '#ff7f0e']
+                )
+                fig.update_traces(mode='lines+markers')
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Line chart - satisfaction score
+                fig = px.line(
+                    user_frequency,
+                    x='date',
+                    y='satisfaction_score',
+                    title='Overall Satisfaction Score',
+                    labels={'satisfaction_score': 'Score (0-100)', 'date': 'Date'},
+                    markers=True,
+                    color_discrete_sequence=['#2ca02c']
+                )
+                fig.update_layout(height=350, yaxis_range=[0, 100])
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Bar chart - distribution by satisfaction level
+            satisfaction_dist = pd.DataFrame({
+                'Level': ['Excellent (4.5+)', 'Good (3.5-4.5)', 'Fair (2.5-3.5)', 'Poor (<2.5)'],
+                'Total Rides': [
+                    user_frequency['excellent_rides'].sum(),
+                    user_frequency['good_rides'].sum(),
+                    user_frequency['fair_rides'].sum(),
+                    user_frequency['poor_rides'].sum()
+                ]
+            })
+            
+            fig = px.bar(
+                satisfaction_dist,
+                x='Level',
+                y='Total Rides',
+                title='Ride Distribution by Satisfaction Level',
+                color='Level',
+                text='Total Rides',
+                color_discrete_map={
+                    'Excellent (4.5+)': '#2ca02c',
+                    'Good (3.5-4.5)': '#1f77b4',
+                    'Fair (2.5-3.5)': '#ff7f0e',
+                    'Poor (<2.5)': '#d62728'
+                }
+            )
+            fig.update_traces(texttemplate='%{text:,}', textposition='outside')
+            fig.update_layout(height=350, showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Detailed table
+            with st.expander("📊 View detailed satisfaction table"):
+                display_df = user_frequency[[
+                    'date', 'total_rated_rides', 'avg_customer_rating', 'avg_driver_rating',
+                    'excellent_rides', 'good_rides', 'fair_rides', 'poor_rides', 'satisfaction_score'
+                ]].copy()
+                
+                display_df.columns = [
+                    'Date', 'Total Rated', 'Customer Rating', 'Driver Rating',
+                    'Excellent', 'Good', 'Fair', 'Poor', 'Satisfaction Score'
+                ]
+                
+                st.dataframe(display_df.sort_values('Date', ascending=False), use_container_width=True)
+        
+        # Monthly Retention KPI
+        if not monthly_retention.empty:
+            st.markdown("---")
+            st.subheader("🔄 Monthly User Retention")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                avg_retention = monthly_retention['retention_rate_pct'].mean()
+                st.metric(
+                    "Average Retention", 
+                    f"{avg_retention:.2f}%",
+                    help="Average percentage of returning users"
+                )
+                
+                latest_retention = monthly_retention.iloc[-1]['retention_rate_pct'] if len(monthly_retention) > 0 else 0
+                st.metric(
+                    "Latest Month", 
+                    f"{latest_retention:.2f}%",
+                    help="Last month retention rate"
+                )
+            
+            with col2:
+                fig = px.bar(
+                    monthly_retention,
+                    x='month',
+                    y='retention_rate_pct',
+                    title='Monthly User Retention',
+                    labels={'month': 'Month', 'retention_rate_pct': 'Retention Rate (%)'},
+                    color_discrete_sequence=['#8c564b']
+                )
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Average Wait Time KPI
+        if not avg_wait_time.empty:
+            st.markdown("---")
+            st.subheader("⏱️ Average Vehicle Arrival Time")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                # Handle NaN values
+                avg_wait = avg_wait_time['avg_wait_time_minutes'].fillna(0).mean()
+                st.metric(
+                    "Average Time", 
+                    f"{avg_wait:.1f} min",
+                    help="Average wait time until vehicle arrives (VTAT)"
+                )
+                
+                total_rides = avg_wait_time['total_bookings'].sum()
+                st.metric(
+                    "Rides with VTAT", 
+                    f"{total_rides:,}",
+                    help="Total rides with arrival time data"
+                )
+            
+            with col2:
+                # Ensure no NaN values in the plot
+                avg_wait_time_clean = avg_wait_time.copy()
+                avg_wait_time_clean['avg_wait_time_minutes'] = avg_wait_time_clean['avg_wait_time_minutes'].fillna(0)
+                
+                fig = px.line(
+                    avg_wait_time_clean,
+                    x='date',
+                    y='avg_wait_time_minutes',
+                    title='Vehicle Arrival Time Trend (VTAT)',
+                    labels={'date': 'Date', 'avg_wait_time_minutes': 'Wait Time (min)'},
+                    markers=True,
+                    color_discrete_sequence=['#e377c2']
+                )
+                fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
 
     # Silver Layer

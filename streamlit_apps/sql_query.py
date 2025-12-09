@@ -130,6 +130,171 @@ FROM gold_daily_booking_summary
 GROUP BY date
 ORDER BY date DESC
 """,
+        "Cancellation Rate - Trend": """
+SELECT 
+    date,
+    total_bookings,
+    cancelled_bookings,
+    cancellation_rate_pct,
+    ROUND(cancellation_rate_pct, 2) as rate_rounded
+FROM gold_cancellation_rate
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Cancellation Rate - Risk Analysis": """
+SELECT 
+    date,
+    total_bookings,
+    cancelled_bookings,
+    cancellation_rate_pct,
+    CASE 
+        WHEN cancellation_rate_pct > 15 THEN 'Critical'
+        WHEN cancellation_rate_pct > 10 THEN 'High'
+        WHEN cancellation_rate_pct > 5 THEN 'Medium'
+        ELSE 'Low'
+    END as risk_level
+FROM gold_cancellation_rate
+ORDER BY cancellation_rate_pct DESC
+LIMIT 20
+""",
+        "Incomplete Rate - Trend": """
+SELECT 
+    date,
+    total_bookings,
+    incomplete_bookings,
+    incomplete_rate_pct,
+    ROUND(incomplete_rate_pct, 2) as rate_rounded
+FROM gold_incomplete_rate
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Incomplete Rate - Risk Analysis": """
+SELECT 
+    date,
+    total_bookings,
+    incomplete_bookings,
+    incomplete_rate_pct,
+    CASE 
+        WHEN incomplete_rate_pct > 10 THEN 'High'
+        WHEN incomplete_rate_pct > 5 THEN 'Medium'
+        ELSE 'Low'
+    END as risk_level
+FROM gold_incomplete_rate
+ORDER BY incomplete_rate_pct DESC
+LIMIT 20
+""",
+        "Revenue per Ride - Trend": """
+SELECT 
+    date,
+    completed_rides,
+    total_revenue,
+    avg_revenue_per_ride,
+    ROUND(avg_revenue_per_ride, 2) as avg_rounded
+FROM gold_avg_revenue_per_ride
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Revenue per Ride - Summary": """
+SELECT 
+    SUM(completed_rides) as total_completed_rides,
+    SUM(total_revenue) as total_revenue,
+    ROUND(AVG(avg_revenue_per_ride), 2) as overall_avg_revenue,
+    ROUND(MIN(avg_revenue_per_ride), 2) as min_revenue,
+    ROUND(MAX(avg_revenue_per_ride), 2) as max_revenue
+FROM gold_avg_revenue_per_ride
+""",
+        "Customer Satisfaction - Ratings": """
+SELECT 
+    date,
+    total_rated_rides,
+    ROUND(avg_customer_rating, 2) as customer_rating,
+    ROUND(avg_driver_rating, 2) as driver_rating,
+    ROUND(satisfaction_score, 1) as satisfaction_score
+FROM gold_user_frequency
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Customer Satisfaction - Distribution": """
+SELECT 
+    SUM(excellent_rides) as excellent,
+    SUM(good_rides) as good,
+    SUM(fair_rides) as fair,
+    SUM(poor_rides) as poor,
+    COUNT(*) as total_days,
+    ROUND(AVG(satisfaction_score), 1) as avg_satisfaction_score
+FROM gold_user_frequency
+""",
+        "Monthly Retention - Trend": """
+SELECT 
+    month,
+    users_current_month,
+    retained_users,
+    retention_rate_pct,
+    ROUND(retention_rate_pct, 2) as retention_rounded
+FROM gold_monthly_retention
+ORDER BY month DESC
+""",
+        "Monthly Retention - User Growth": """
+SELECT 
+    month,
+    users_current_month,
+    retained_users,
+    users_current_month - retained_users as new_users,
+    ROUND((users_current_month - retained_users) * 100.0 / users_current_month, 2) as new_user_pct
+FROM gold_monthly_retention
+ORDER BY month DESC
+""",
+        "Wait Time - Trend": """
+SELECT 
+    date,
+    total_bookings,
+    avg_wait_time_minutes,
+    ROUND(avg_wait_time_minutes, 1) as wait_time_rounded
+FROM gold_avg_wait_time
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Wait Time - Service Level": """
+SELECT 
+    date,
+    total_bookings,
+    avg_wait_time_minutes,
+    CASE 
+        WHEN avg_wait_time_minutes < 5 THEN 'Excellent'
+        WHEN avg_wait_time_minutes < 10 THEN 'Good'
+        WHEN avg_wait_time_minutes < 15 THEN 'Fair'
+        ELSE 'Poor'
+    END as service_level
+FROM gold_avg_wait_time
+ORDER BY date DESC
+LIMIT 30
+""",
+        "Combined Performance - Daily Dashboard": """
+SELECT 
+    cr.date,
+    cr.cancellation_rate_pct,
+    ir.incomplete_rate_pct,
+    ar.avg_revenue_per_ride,
+    wt.avg_wait_time_minutes
+FROM gold_cancellation_rate cr
+LEFT JOIN gold_incomplete_rate ir ON cr.date = ir.date
+LEFT JOIN gold_avg_revenue_per_ride ar ON cr.date = ar.date
+LEFT JOIN gold_avg_wait_time wt ON cr.date = wt.date
+ORDER BY cr.date DESC
+LIMIT 30
+""",
+        "Combined Performance - Problem Days": """
+SELECT 
+    cr.date,
+    cr.total_bookings,
+    cr.cancellation_rate_pct,
+    ir.incomplete_rate_pct,
+    cr.cancellation_rate_pct + ir.incomplete_rate_pct as total_failure_rate
+FROM gold_cancellation_rate cr
+INNER JOIN gold_incomplete_rate ir ON cr.date = ir.date
+WHERE (cr.cancellation_rate_pct + ir.incomplete_rate_pct) > 15
+ORDER BY total_failure_rate DESC
+""",
         "Silver layer - All customers": "SELECT * FROM silver_customer LIMIT 100",
         "Bronze layer - Raw bookings": "SELECT * FROM bronze_booking LIMIT 50",
     }

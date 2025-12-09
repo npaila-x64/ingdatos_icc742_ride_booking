@@ -66,9 +66,11 @@ BRONZE_BOOKING_SCHEMA = Schema(
     NestedField(8, "booking_value", DoubleType(), required=False),
     NestedField(9, "date", DateType(), required=False),
     NestedField(10, "time", StringType(), required=False),
-    NestedField(11, "extraction_date", DateType(), required=False),
-    NestedField(12, "extraction_month", StringType(), required=False),
-    NestedField(13, "source_file", StringType(), required=False),
+    NestedField(11, "avg_vtat", DoubleType(), required=False),
+    NestedField(12, "avg_ctat", DoubleType(), required=False),
+    NestedField(13, "extraction_date", DateType(), required=False),
+    NestedField(14, "extraction_month", StringType(), required=False),
+    NestedField(15, "source_file", StringType(), required=False),
 )
 
 BRONZE_RIDE_SCHEMA = Schema(
@@ -218,6 +220,72 @@ GOLD_LOCATION_ANALYTICS_SCHEMA = Schema(
     NestedField(7, "extraction_month", StringType(), required=False),
     NestedField(8, "created_at", TimestampType(), required=False),
     NestedField(9, "updated_at", TimestampType(), required=False),
+)
+
+# New KPI Schemas
+GOLD_CANCELLATION_RATE_SCHEMA = Schema(
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "total_bookings", LongType(), required=False),
+    NestedField(3, "cancelled_bookings", LongType(), required=False),
+    NestedField(4, "cancellation_rate_pct", DoubleType(), required=False),
+    NestedField(5, "extraction_month", StringType(), required=False),
+    NestedField(6, "created_at", TimestampType(), required=False),
+    NestedField(7, "updated_at", TimestampType(), required=False),
+)
+
+GOLD_INCOMPLETE_RATE_SCHEMA = Schema(
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "total_bookings", LongType(), required=False),
+    NestedField(3, "incomplete_bookings", LongType(), required=False),
+    NestedField(4, "incomplete_rate_pct", DoubleType(), required=False),
+    NestedField(5, "extraction_month", StringType(), required=False),
+    NestedField(6, "created_at", TimestampType(), required=False),
+    NestedField(7, "updated_at", TimestampType(), required=False),
+)
+
+GOLD_AVG_REVENUE_PER_RIDE_SCHEMA = Schema(
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "completed_rides", LongType(), required=False),
+    NestedField(3, "total_revenue", DoubleType(), required=False),
+    NestedField(4, "avg_revenue_per_ride", DoubleType(), required=False),
+    NestedField(5, "extraction_month", StringType(), required=False),
+    NestedField(6, "created_at", TimestampType(), required=False),
+    NestedField(7, "updated_at", TimestampType(), required=False),
+)
+
+GOLD_USER_FREQUENCY_SCHEMA = Schema(
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "total_rated_rides", LongType(), required=False),
+    NestedField(3, "avg_customer_rating", DoubleType(), required=False),
+    NestedField(4, "avg_driver_rating", DoubleType(), required=False),
+    NestedField(5, "excellent_rides", LongType(), required=False),
+    NestedField(6, "good_rides", LongType(), required=False),
+    NestedField(7, "fair_rides", LongType(), required=False),
+    NestedField(8, "poor_rides", LongType(), required=False),
+    NestedField(9, "satisfaction_score", DoubleType(), required=False),
+    NestedField(10, "extraction_month", StringType(), required=False),
+    NestedField(11, "created_at", TimestampType(), required=False),
+    NestedField(12, "updated_at", TimestampType(), required=False),
+)
+
+GOLD_MONTHLY_RETENTION_SCHEMA = Schema(
+    NestedField(1, "month", StringType(), required=False),
+    NestedField(2, "previous_month", StringType(), required=False),
+    NestedField(3, "users_current_month", LongType(), required=False),
+    NestedField(4, "users_previous_month", LongType(), required=False),
+    NestedField(5, "retained_users", LongType(), required=False),
+    NestedField(6, "retention_rate_pct", DoubleType(), required=False),
+    NestedField(7, "created_at", TimestampType(), required=False),
+    NestedField(8, "updated_at", TimestampType(), required=False),
+)
+
+GOLD_AVG_WAIT_TIME_SCHEMA = Schema(
+    NestedField(1, "date", DateType(), required=False),
+    NestedField(2, "avg_wait_time_minutes", DoubleType(), required=False),
+    NestedField(3, "total_bookings", LongType(), required=False),
+    NestedField(4, "extraction_month", StringType(), required=False),
+    NestedField(5, "created_at", TimestampType(), required=False),
+    NestedField(6, "updated_at", TimestampType(), required=False),
 )
 
 

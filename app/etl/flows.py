@@ -42,6 +42,12 @@ from app.etl.tasks.gold import (
     aggregate_gold_daily_booking_summary,
     aggregate_gold_customer_analytics,
     aggregate_gold_location_analytics,
+    aggregate_gold_cancellation_rate,
+    aggregate_gold_incomplete_rate,
+    aggregate_gold_avg_revenue_per_ride,
+    aggregate_gold_user_frequency,
+    aggregate_gold_monthly_retention,
+    aggregate_gold_avg_wait_time,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,10 +210,24 @@ def gold_aggregation_flow(
     customer_analytics_count = aggregate_gold_customer_analytics(iceberg_adapter)
     location_analytics_count = aggregate_gold_location_analytics(iceberg_adapter)
     
+    # New KPI aggregations
+    cancellation_rate_count = aggregate_gold_cancellation_rate(iceberg_adapter)
+    incomplete_rate_count = aggregate_gold_incomplete_rate(iceberg_adapter)
+    avg_revenue_per_ride_count = aggregate_gold_avg_revenue_per_ride(iceberg_adapter)
+    user_frequency_count = aggregate_gold_user_frequency(iceberg_adapter)
+    monthly_retention_count = aggregate_gold_monthly_retention(iceberg_adapter)
+    avg_wait_time_count = aggregate_gold_avg_wait_time(iceberg_adapter)
+    
     results = {
         'gold.daily_booking_summary': daily_summary_count,
         'gold.customer_analytics': customer_analytics_count,
         'gold.location_analytics': location_analytics_count,
+        'gold.cancellation_rate': cancellation_rate_count,
+        'gold.incomplete_rate': incomplete_rate_count,
+        'gold.avg_revenue_per_ride': avg_revenue_per_ride_count,
+        'gold.user_frequency': user_frequency_count,
+        'gold.monthly_retention': monthly_retention_count,
+        'gold.avg_wait_time': avg_wait_time_count,
     }
     
     logger.info(f"Gold aggregation completed: {sum(results.values())} total rows")
